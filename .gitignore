@@ -1,0 +1,13 @@
+# Python env & caches (tous sous-dossiers)
+**/.venv/
+__pycache__/
+*.pyc
+
+# IDE
+.idea/
+.vscode/
+
+# Secrets (tous sous-dossiers)
+**/.env
+**/secrets/
+*.json
