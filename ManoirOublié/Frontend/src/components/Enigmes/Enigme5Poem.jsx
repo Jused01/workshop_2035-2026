@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { getEnigmeDoc } from "../../services/firebase";
 
-export default function Enigme5Poeme({ onComplete }) {
+export default function Enigme5Poem({ onComplete }) {
     const [loading, setLoading] = useState(true);
     const [poem, setPoem] = useState("");
     const [answer, setAnswer] = useState("");
