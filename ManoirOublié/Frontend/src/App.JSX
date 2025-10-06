@@ -25,8 +25,7 @@ export default function App() {
 
     const handleStartGame = () => setScreen("game");
 
-    if (screen === "home")
-        return <HomeMenu onEnterManor={handleEnterManor} />;
+    if (screen === "home") return <HomeMenu onEnterManor={handleEnterManor} />;
     if (screen === "waiting")
         return (
             <WaitingRoom
