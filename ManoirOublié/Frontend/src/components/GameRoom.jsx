@@ -9,7 +9,7 @@ import Enigme4Timeline from "./Enigmes/Enigme4Timeline";
 export default function GameRoom({ roomCode, playerName, players }) {
     const { messages, sendMessage } = useSocket(roomCode);
     const [chatInput, setChatInput] = useState("");
-    const [currentEnigme, setCurrentEnigme] = useState(1);
+    const [currentEnigme, setCurrentEnigme] = useState(props.currentEnigme || 1);
     const [score, setScore] = useState(0);
     const [timeLeft, setTimeLeft] = useState(1800);
 
