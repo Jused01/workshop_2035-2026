@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import HomeMenu from "./components/HomeMenu";
 import WaitingRoom from "./components/WaitingRoom";
-import EnigmeSelectionRoom from "./components/EnigmeSelectionRoom"; // Nouvelle salle
+import EnigmeSelectionRoom from "./components/EnigmeSelectionRoom";
 import GameRoom from "./components/GameRoom";
 
 export default function App() {
@@ -9,7 +9,8 @@ export default function App() {
     const [playerName, setPlayerName] = useState("");
     const [roomCode, setRoomCode] = useState("");
     const [players, setPlayers] = useState([]);
-    const [selectedEnigme, setSelectedEnigme] = useState(1); // Énigme sélectionnée
+    const [selectedEnigme, setSelectedEnigme] = useState(1);
+    const [score, setScore] = useState(0);
 
     const handleEnterManor = (name) => {
         setPlayerName(name);
@@ -26,12 +27,21 @@ export default function App() {
     };
 
     const handleStartGame = () => {
-        setScreen("selection"); // Passe à la salle de sélection
+        setScreen("selection");
     };
 
     const handleSelectEnigme = (enigmeId) => {
         setSelectedEnigme(enigmeId);
-        setScreen("game"); // Passe à la GameRoom avec l'énigme choisie
+        setScreen("game");
+    };
+
+    const handleEnigmeComplete = (points) => {
+        setScore((prev) => prev + points);
+        if (selectedEnigme < 4) {
+            setSelectedEnigme((prev) => prev + 1);
+        } else {
+            alert("🎉 Victoire ! Vous avez résolu toutes les énigmes !");
+        }
     };
 
     if (screen === "home") return <HomeMenu onEnterManor={handleEnterManor} />;
@@ -49,6 +59,7 @@ export default function App() {
         return (
             <EnigmeSelectionRoom
                 playerName={playerName}
+                score={score}
                 onSelectEnigme={handleSelectEnigme}
             />
         );
@@ -58,7 +69,9 @@ export default function App() {
                 roomCode={roomCode}
                 playerName={playerName}
                 players={players}
-                currentEnigme={selectedEnigme} // Passe l'énigme sélectionnée
+                currentEnigme={selectedEnigme}
+                score={score}
+                onComplete={handleEnigmeComplete}
             />
         );
 }

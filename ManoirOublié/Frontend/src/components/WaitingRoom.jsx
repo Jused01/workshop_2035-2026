@@ -1,16 +1,8 @@
 import React, { useState } from "react";
-import { Users, Trophy } from "lucide-react";
+import { Users, Trophy, DoorOpen } from "lucide-react";
 
-export default function WaitingRoom({
-                                        roomCode,
-                                        playerName,
-                                        players,
-                                        onReady,
-                                        onStartGame,
-                                    }) {
+export default function WaitingRoom({ roomCode, playerName, players, onReady, onStartGame }) {
     const [isReady, setIsReady] = useState(false);
-
-    // Modification ici : on accepte 1 joueur prêt au lieu de 2
     const allReady = players.length >= 1 && players.every((p) => p.ready);
 
     const handleReady = () => {
@@ -21,24 +13,27 @@ export default function WaitingRoom({
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-950 to-gray-900 text-gray-200 p-8">
             <div className="max-w-4xl mx-auto">
+                {/* En-tête */}
                 <div className="bg-gray-800/80 backdrop-blur-lg rounded-2xl p-8 mb-6 border border-gray-700">
-                    <h2 className="text-3xl font-bold mb-4 text-center">
-                        🚪 Salle d’attente du Musée
+                    <h2 className="text-3xl font-bold mb-4 text-center text-indigo-100">
+                        <DoorOpen className="inline-block mr-2 w-8 h-8" />
+                        Salle d'attente
                     </h2>
                     <div className="bg-amber-600/80 text-black px-6 py-4 rounded-lg text-center font-mono text-3xl font-bold mb-4">
-                        Code du Salon : {roomCode}
+                        Code: {roomCode}
                     </div>
                     <p className="text-center text-gray-400">
-                        Partagez ce code avec un ami ! (Minimum 1 joueur requis)
+                        Partagez ce code avec des amis ! (Jouable en solo ou à plusieurs)
                     </p>
                 </div>
 
+                {/* Liste des joueurs */}
                 <div className="bg-gray-800/80 rounded-2xl p-8 mb-6 border border-gray-700">
-                    <h3 className="text-2xl font-bold mb-4 flex items-center gap-2">
+                    <h3 className="text-2xl font-bold mb-4 flex items-center gap-2 text-indigo-100">
                         <Users className="w-7 h-7" />
-                        Aventuriers Présents ({players.length}/4)
+                        Joueurs ({players.length}/4)
                     </h3>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {players.map((player, idx) => (
                             <div
                                 key={idx}
@@ -62,7 +57,8 @@ export default function WaitingRoom({
                     </div>
                 </div>
 
-                <div className="flex gap-4">
+                {/* Boutons d'action */}
+                <div className="flex flex-col sm:flex-row gap-4">
                     <button
                         onClick={handleReady}
                         className={`flex-1 py-4 rounded-xl font-bold text-lg transition-all ${
@@ -78,7 +74,8 @@ export default function WaitingRoom({
                             onClick={onStartGame}
                             className="flex-1 bg-gradient-to-r from-amber-700 to-amber-600 py-4 rounded-xl font-bold text-lg hover:scale-105 transition-transform"
                         >
-                            🔥 Commencer l'aventure
+                            <DoorOpen className="inline-block mr-2 w-5 h-5" />
+                            Commencer l'aventure
                         </button>
                     )}
                 </div>

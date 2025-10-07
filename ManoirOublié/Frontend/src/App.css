@@ -1,28 +1,22 @@
-/* src/index.css (ou app.css) */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Réinitialisation des marges/paddings par défaut */
+/* Réinitialisation globale */
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
 }
 
-/* Police personnalisée (ex: Google Fonts) */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+/* Police personnalisée */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 body {
     font-family: 'Inter', sans-serif;
 }
 
-/* Animation globale pour les transitions */
-.transition-all {
-    transition: all 0.3s ease;
-}
-
-/* Style pour les scrollbars (optionnel) */
+/* Scrollbar personnalisée */
 ::-webkit-scrollbar {
     width: 8px;
 }
@@ -36,13 +30,23 @@ body {
     border-radius: 4px;
 }
 
-/* Style pour les cadrans (optionnel) */
+/* Animation de surbrillance */
+@keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.4); }
+    70% { box-shadow: 0 0 0 10px rgba(79, 70, 229, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0); }
+}
+
+.hover-pulse:hover {
+    animation: pulse 1.5s infinite;
+}
+
+/* Style pour les cadrans */
 .cadran {
-    background: rgba(30, 41, 59, 0.8);
-    border-radius: 12px;
-    border: 1px solid rgba(76, 110, 245, 0.3);
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    backdrop-filter: blur(8px);
-    padding: 1.5rem;
-    margin: 0.5rem;
+    transition: all 0.3s ease;
+}
+
+/* Style pour les boutons */
+button {
+    transition: all 0.2s ease;
 }

@@ -8,9 +8,8 @@ const HomeMenu = ({ onEnterManor }) => {
     const [showNameInput, setShowNameInput] = useState(false);
     const canvasRef = useRef(null);
     const rafRef = useRef(null);
-
-    const canvasWidth = 600;
-    const canvasHeight = 400;
+    const canvasWidth = 800;
+    const canvasHeight = 500;
 
     useEffect(() => {
         const canvas = canvasRef.current;
@@ -22,181 +21,109 @@ const HomeMenu = ({ onEnterManor }) => {
         const drawScene = () => {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // ===== ARRIÈRE-PLAN (CIEL NOCTURNE) =====
+            // === ARRIÈRE-PLAN ===
             const skyGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-            skyGradient.addColorStop(0, "#0a041c");
+            skyGradient.addColorStop(0, "#050a28");
             skyGradient.addColorStop(1, "#1a1030");
             ctx.fillStyle = skyGradient;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Étoiles scintillantes
-            for (let i = 0; i < 80; i++) {
-                ctx.fillStyle = `rgba(255, 255, 255, ${Math.random() * 0.8})`;
+            // Étoiles
+            for (let i = 0; i < 150; i++) {
+                ctx.fillStyle = `rgba(255, 255, 255, ${Math.random() * 0.7})`;
                 ctx.beginPath();
-                ctx.arc(
-                    Math.random() * canvas.width,
-                    Math.random() * (canvas.height / 2),
-                    Math.random() * 1.5,
-                    0,
-                    Math.PI * 2
-                );
+                ctx.arc(Math.random() * canvas.width, Math.random() * (canvas.height / 2), Math.random() * 1.2, 0, Math.PI * 2);
                 ctx.fill();
             }
 
-            // Lune stylisée avec halo
+            // Lune
             ctx.beginPath();
             ctx.fillStyle = "#f5f3ce";
-            ctx.arc(500, 80, 35, 0, Math.PI * 2);
+            ctx.arc(700, 100, 40, 0, Math.PI * 2);
             ctx.fill();
             ctx.beginPath();
-            ctx.fillStyle = "rgba(245, 243, 206, 0.3)";
-            ctx.arc(500, 80, 45, 0, Math.PI * 2);
+            ctx.fillStyle = "rgba(245, 243, 206, 0.2)";
+            ctx.arc(700, 100, 60, 0, Math.PI * 2);
             ctx.fill();
 
-            // ===== MUSÉE OUBLIÉ =====
+            // === MUSÉE ===
             ctx.fillStyle = "#2d1b3d";
-            ctx.fillRect(80, 120, 440, 200);
-
-            // Toit
+            ctx.fillRect(100, 150, 600, 300);
             ctx.beginPath();
-            ctx.moveTo(60, 120);
-            ctx.lineTo(300, 80);
-            ctx.lineTo(540, 120);
+            ctx.moveTo(80, 150);
+            ctx.lineTo(400, 80);
+            ctx.lineTo(720, 150);
             ctx.closePath();
             ctx.fillStyle = "#3d2b4c";
             ctx.fill();
-
-            // Colonnes
-            ctx.fillStyle = "#4a3b5a";
-            ctx.fillRect(120, 140, 20, 100);
-            ctx.fillRect(200, 140, 20, 100);
-            ctx.fillRect(360, 140, 20, 100);
-            ctx.fillRect(440, 140, 20, 100);
-
-            // Fenêtres éclairées
-            ctx.fillStyle = "#d4af37";
-            ctx.fillRect(140, 160, 30, 50);
-            ctx.fillRect(220, 160, 30, 50);
-            ctx.fillRect(330, 160, 30, 50);
-            ctx.fillRect(410, 160, 30, 50);
-
-            // Porte monumentale
-            ctx.fillStyle = "#5c3a21";
-            ctx.fillRect(270, 220, 60, 100);
+            ctx.fillStyle = "#1a1030";
+            ctx.fillRect(350, 250, 100, 150);
             ctx.fillStyle = "#3a241d";
-            ctx.fillRect(275, 225, 50, 90);
-
-            // Poignée de porte dorée
+            ctx.fillRect(360, 260, 80, 130);
             ctx.beginPath();
             ctx.fillStyle = "#d4af37";
-            ctx.arc(300, 270, 5, 0, Math.PI * 2);
+            ctx.arc(400, 325, 6, 0, Math.PI * 2);
             ctx.fill();
-
-            // Panneau "Musée Oublié"
             ctx.fillStyle = "#1a1030";
-            ctx.fillRect(240, 95, 120, 30);
-            ctx.font = "bold 14px Arial";
+            ctx.fillRect(370, 120, 160, 40);
+            ctx.font = "bold 20px Arial";
             ctx.fillStyle = "#d4af37";
             ctx.textAlign = "center";
-            ctx.fillText("MUSÉE OUBLIÉ", 300, 115);
+            ctx.fillText("MUSÉE OUBLIÉ", 450, 150);
 
-            // ===== SOL =====
+            // === SOL ===
             ctx.fillStyle = "#1a1020";
-            ctx.fillRect(0, 350, canvas.width, 50);
+            ctx.fillRect(0, 450, canvas.width, 50);
 
-            // ===== PERSONNAGE CHIBI CUBIQUE (STYLE MINECRAFT) =====
-            const baseX = playerX * 6;
-            const baseY = playerY * 4;
-            const t = Date.now() / 400;
-            const bobbing = Math.sin(t) * 1.5;
-            const legSwing = Math.sin(t * 2) * 6;
+            // === PERSONNAGE ===
+            const baseX = playerX * 8;
+            const baseY = playerY * 5;
+            const t = Date.now() / 300;
+            const bobbing = Math.sin(t) * 2;
+            const legSwing = Math.sin(t * 2) * 8;
 
             // Ombre
             ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
-            ctx.fillRect(baseX - 10, baseY + 38, 20, 3);
+            ctx.fillRect(baseX - 12, baseY + 45, 24, 4);
 
-            // === JAMBES (en dessous) ===
-            // Jambe gauche
+            // Jambes
             ctx.fillStyle = "#4a5568";
-            ctx.fillRect(baseX - 9, baseY + 20 + bobbing, 6, 12 - legSwing);
-            ctx.fillStyle = "#2d3748";
-            ctx.fillRect(baseX - 9, baseY + 20 + bobbing, 2, 12 - legSwing); // Ombre côté
-            // Chaussure gauche
+            ctx.fillRect(baseX - 8, baseY + 25 + bobbing, 8, 15 - legSwing);
+            ctx.fillRect(baseX + 0, baseY + 25 + bobbing, 8, 15 + legSwing);
             ctx.fillStyle = "#1a202c";
-            ctx.fillRect(baseX - 9, baseY + 32 + bobbing - legSwing, 6, 4);
+            ctx.fillRect(baseX - 8, baseY + 40 + bobbing - legSwing, 8, 5);
+            ctx.fillRect(baseX + 0, baseY + 40 + bobbing + legSwing, 8, 5);
 
-            // Jambe droite
-            ctx.fillStyle = "#4a5568";
-            ctx.fillRect(baseX + 3, baseY + 20 + bobbing, 6, 12 + legSwing);
-            ctx.fillStyle = "#2d3748";
-            ctx.fillRect(baseX + 3, baseY + 20 + bobbing, 2, 12 + legSwing);
-            // Chaussure droite
-            ctx.fillStyle = "#1a202c";
-            ctx.fillRect(baseX + 3, baseY + 32 + bobbing + legSwing, 6, 4);
-
-            // === CORPS (torse cubique) ===
+            // Corps
             ctx.fillStyle = "#5c7cfa";
-            ctx.fillRect(baseX - 8, baseY + 4 + bobbing, 16, 18);
-            // Ombres pour effet 3D
+            ctx.fillRect(baseX - 12, baseY - 5 + bobbing, 24, 25);
             ctx.fillStyle = "#4c6ef5";
-            ctx.fillRect(baseX - 8, baseY + 4 + bobbing, 3, 18); // Côté gauche plus sombre
+            ctx.fillRect(baseX - 12, baseY - 5 + bobbing, 4, 25);
             ctx.fillStyle = "#748ffc";
-            ctx.fillRect(baseX + 5, baseY + 4 + bobbing, 3, 18); // Côté droit plus clair
+            ctx.fillRect(baseX + 8, baseY - 5 + bobbing, 4, 25);
 
-            // === BRAS (fixes le long du corps) ===
-            // Bras gauche
+            // Bras
             ctx.fillStyle = "#5c7cfa";
-            ctx.fillRect(baseX - 14, baseY + 6 + bobbing, 5, 14);
-            ctx.fillStyle = "#4c6ef5";
-            ctx.fillRect(baseX - 14, baseY + 6 + bobbing, 2, 14);
-            // Main gauche
+            ctx.fillRect(baseX - 18, baseY + 5 + bobbing, 6, 18);
+            ctx.fillRect(baseX + 12, baseY + 5 + bobbing, 6, 18);
             ctx.fillStyle = "#ffd4b8";
-            ctx.fillRect(baseX - 14, baseY + 20 + bobbing, 5, 4);
+            ctx.fillRect(baseX - 18, baseY + 23 + bobbing, 6, 5);
+            ctx.fillRect(baseX + 12, baseY + 23 + bobbing, 6, 5);
 
-            // Bras droit
-            ctx.fillStyle = "#5c7cfa";
-            ctx.fillRect(baseX + 9, baseY + 6 + bobbing, 5, 14);
-            ctx.fillStyle = "#748ffc";
-            ctx.fillRect(baseX + 12, baseY + 6 + bobbing, 2, 14);
-            // Main droite
+            // Tête
             ctx.fillStyle = "#ffd4b8";
-            ctx.fillRect(baseX + 9, baseY + 20 + bobbing, 5, 4);
-
-            // === TÊTE (cube) ===
-            ctx.fillStyle = "#ffd4b8";
-            ctx.fillRect(baseX - 10, baseY - 16 + bobbing, 20, 20);
-            // Ombres tête pour effet 3D
+            ctx.fillRect(baseX - 12, baseY - 15 + bobbing, 24, 20);
             ctx.fillStyle = "#ffcaa0";
-            ctx.fillRect(baseX - 10, baseY - 16 + bobbing, 4, 20); // Côté gauche
+            ctx.fillRect(baseX - 12, baseY - 15 + bobbing, 4, 20);
             ctx.fillStyle = "#ffe0cc";
-            ctx.fillRect(baseX + 6, baseY - 16 + bobbing, 4, 20); // Côté droit
-
-            // Cheveux (dessus de la tête)
+            ctx.fillRect(baseX + 8, baseY - 15 + bobbing, 4, 20);
             ctx.fillStyle = "#8b5a3c";
-            ctx.fillRect(baseX - 10, baseY - 18 + bobbing, 20, 4);
-            ctx.fillStyle = "#6b4423";
-            ctx.fillRect(baseX - 10, baseY - 18 + bobbing, 4, 4);
-
-            // === VISAGE ===
-            // Yeux (pixels noirs)
+            ctx.fillRect(baseX - 12, baseY - 20 + bobbing, 24, 5);
             ctx.fillStyle = "#000";
-            ctx.fillRect(baseX - 6, baseY - 10 + bobbing, 3, 4);
-            ctx.fillRect(baseX + 3, baseY - 10 + bobbing, 3, 4);
-
-            // Reflets blancs dans les yeux
-            ctx.fillStyle = "#fff";
-            ctx.fillRect(baseX - 5, baseY - 9 + bobbing, 1, 1);
-            ctx.fillRect(baseX + 4, baseY - 9 + bobbing, 1, 1);
-
-            // Bouche (petit sourire pixelisé)
+            ctx.fillRect(baseX - 8, baseY - 10 + bobbing, 3, 4);
+            ctx.fillRect(baseX + 5, baseY - 10 + bobbing, 3, 4);
             ctx.fillStyle = "#000";
-            ctx.fillRect(baseX - 3, baseY - 2 + bobbing, 2, 1);
-            ctx.fillRect(baseX + 1, baseY - 2 + bobbing, 2, 1);
-            ctx.fillRect(baseX - 1, baseY - 1 + bobbing, 2, 1);
-
-            // Accessoire: petite écharpe carrée
-            ctx.fillStyle = "#e64980";
-            ctx.fillRect(baseX - 8, baseY + 3 + bobbing, 16, 3);
+            ctx.fillRect(baseX - 3, baseY + 3 + bobbing, 6, 2);
 
             rafRef.current = requestAnimationFrame(drawScene);
         };
@@ -210,25 +137,16 @@ const HomeMenu = ({ onEnterManor }) => {
     const handleKeyPress = (e) => {
         const speed = 2;
         switch (e.key) {
-            case "ArrowUp":
-                setPlayerY((p) => Math.max(20, p - speed));
-                break;
-            case "ArrowDown":
-                setPlayerY((p) => Math.min(100, p + speed));
-                break;
-            case "ArrowLeft":
-                setPlayerX((p) => Math.max(10, p - speed));
-                break;
-            case "ArrowRight":
-                setPlayerX((p) => Math.min(100, p + speed));
-                break;
+            case "ArrowUp": setPlayerY((p) => Math.max(20, p - speed)); break;
+            case "ArrowDown": setPlayerY((p) => Math.min(100, p + speed)); break;
+            case "ArrowLeft": setPlayerX((p) => Math.max(10, p - speed)); break;
+            case "ArrowRight": setPlayerX((p) => Math.min(100, p + speed)); break;
             case "Enter":
                 if (playerX > 40 && playerX < 60 && playerY > 70) {
                     setShowNameInput(true);
                 }
                 break;
-            default:
-                break;
+            default: break;
         }
     };
 
@@ -238,9 +156,7 @@ const HomeMenu = ({ onEnterManor }) => {
     }, [playerX, playerY]);
 
     const handleStartGame = () => {
-        if (playerName.trim()) {
-            onEnterManor(playerName.trim());
-        }
+        if (playerName.trim()) onEnterManor(playerName.trim());
     };
 
     return (
@@ -263,16 +179,16 @@ const HomeMenu = ({ onEnterManor }) => {
             </p>
 
             {/* Zone de jeu */}
-            <div className="relative mb-8 w-full max-w-4xl z-10">
+            <div className="relative mb-8 w-full max-w-5xl z-10">
                 <canvas
                     ref={canvasRef}
                     width={canvasWidth}
                     height={canvasHeight}
-                    className="border-4 border-indigo-600/50 rounded-2xl shadow-2xl bg-gray-900/50 mx-auto block mb-6"
+                    className="border-4 border-indigo-600/50 rounded-2xl shadow-2xl bg-gray-900/50 mx-auto block"
                 />
 
-                {/* Cadres d'information */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 px-4">
+                {/* Cadrans d'information */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
                     {/* Histoire */}
                     <div className="bg-gray-800/80 backdrop-blur-md p-6 rounded-xl border-2 border-indigo-600/30 shadow-lg">
                         <div className="flex items-center gap-3 mb-3">
@@ -281,7 +197,7 @@ const HomeMenu = ({ onEnterManor }) => {
                         </div>
                         <p className="text-indigo-200 text-sm leading-relaxed">
                             Le Musée Oublié de Nantes renferme des œuvres perdues depuis des décennies.
-                            Cinq énigmes protègent son secret ultime.
+                            Cinq énigmes protègent son secret ultime. Résolvez-les pour découvrir la vérité cachée.
                         </p>
                     </div>
 
@@ -293,10 +209,7 @@ const HomeMenu = ({ onEnterManor }) => {
                         </div>
                         <div className="grid grid-cols-3 gap-2 mb-3">
                             {["↑", "←", "→"].map((key, idx) => (
-                                <kbd
-                                    key={idx}
-                                    className="bg-indigo-600 text-white px-2 py-2 rounded-lg text-center font-bold shadow-md text-sm"
-                                >
+                                <kbd key={idx} className="bg-indigo-600 text-white px-2 py-2 rounded-lg text-center font-bold shadow-md text-sm">
                                     {key}
                                 </kbd>
                             ))}
@@ -307,7 +220,7 @@ const HomeMenu = ({ onEnterManor }) => {
                             </div>
                         </div>
                         <p className="text-indigo-200 text-xs">
-                            Appuyez sur <kbd className="bg-amber-500 text-black px-2 py-1 rounded font-bold">Entrée</kbd> devant la porte
+                            Appuyez sur <kbd className="bg-amber-500 text-black px-2 py-1 rounded font-bold">Entrée</kbd> devant la porte.
                         </p>
                     </div>
 
@@ -324,7 +237,7 @@ const HomeMenu = ({ onEnterManor }) => {
                 </div>
             </div>
 
-            {/* Pop-up nom du joueur */}
+            {/* Pop-up pour le nom */}
             {showNameInput && (
                 <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50">
                     <div className="bg-gray-800/95 backdrop-blur-lg p-10 rounded-2xl border border-indigo-600 shadow-2xl max-w-md w-full">
