@@ -3,38 +3,42 @@ import React, { useEffect, useState } from "react";
 import { getEnigmeDoc, getDownloadUrls } from "../../services/api";
 import { validatePuzzle } from "../../services/api";
 
-/**
- * Comportement :
- * - Récupère dans Firestore le doc "enigme1", qui doit contenir
- *   { images: ["enigmes/enigme1/img1.jpg","..."], mode: "choose-three" }
- * - Télécharge 3 URLs depuis Storage (getDownloadUrls).
- * - Pour chaque image, on la découpe en tiles 3x3 (par ex) et on mélange.
- * - L'utilisateur clique sur deux tiles pour échanger. Quand l'image est reconstituée -> onComplete(points)
- *
- * Simplification : on prend la première image pour le puzzle, ou on propose switch entre 3 images.
- */
 export default function Enigme1Puzzle({ onComplete }) {
     const [loading, setLoading] = useState(true);
     const [imageUrls, setImageUrls] = useState([]);
     const [tiles, setTiles] = useState([]);
     const [selected, setSelected] = useState(null);
     const [gridSize] = useState(3); // 3x3
+    const [tileSize, setTileSize] = useState(120);
+
+    const defaultNantesArtwork = "https://upload.wikimedia.org/wikipedia/commons/3/3b/Ch%C3%A2teau_des_ducs_de_Bretagne%2C_Nantes%2C_2012-08-19.jpg"; // public domain photo of Nantes castle
+
+    useEffect(() => {
+        const handleResize = () => {
+            const maxTile = 140;
+            const minTile = 80;
+            const candidate = Math.floor(Math.min(window.innerWidth * 0.08, maxTile));
+            setTileSize(Math.max(minTile, candidate));
+        };
+        handleResize();
+        window.addEventListener("resize", handleResize);
+        return () => window.removeEventListener("resize", handleResize);
+    }, []);
 
     useEffect(() => {
         let mounted = true;
         const load = async () => {
             const doc = await getEnigmeDoc("enigme1");
-            if (!doc) {
-                console.error("enigme1 absent en BDD");
-                setLoading(false);
-                return;
+            const paths = (doc && doc.images) || [];
+            let urls = [];
+            if (paths.length > 0) {
+                urls = await getDownloadUrls(paths.slice(0, 3));
+            } else {
+                urls = [defaultNantesArtwork];
             }
-            const paths = doc.images || [];
-            // prends au moins 1 image (ou 3 si souhaité)
-            const urls = await getDownloadUrls(paths.slice(0, 3));
             if (!mounted) return;
             setImageUrls(urls);
-            if (urls.length > 0) preparePuzzle(urls[0]); // on prend la première image pour le puzzle
+            if (urls.length > 0) preparePuzzle(urls[0]);
             setLoading(false);
         };
         load();
@@ -43,16 +47,13 @@ export default function Enigme1Puzzle({ onComplete }) {
     }, []);
 
     const preparePuzzle = (imgUrl) => {
-        // on va créer tiles virtuelles plutôt que découper physiquement les images
-        // tiles: [{id, index, correctIndex, img: url, sx, sy, sw, sh}]
         const total = gridSize * gridSize;
         const arr = Array.from({ length: total }, (_, i) => ({
             id: i + 1,
-            pos: i, // position actuelle
+            pos: i,
             correct: i,
             img: imgUrl,
         }));
-        // shuffle positions
         for (let i = arr.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [arr[i].pos, arr[j].pos] = [arr[j].pos, arr[i].pos];
@@ -65,7 +66,6 @@ export default function Enigme1Puzzle({ onComplete }) {
             setSelected(idx);
         } else {
             const newTiles = [...tiles];
-            // swap pos of tile at selected and tile at idx
             const tmp = newTiles[selected].pos;
             newTiles[selected].pos = newTiles[idx].pos;
             newTiles[idx].pos = tmp;
@@ -73,11 +73,10 @@ export default function Enigme1Puzzle({ onComplete }) {
             setSelected(null);
 
             if (newTiles.every((t) => t.pos === t.correct)) {
-                // Validate with backend
                 validatePuzzle("puzzle-nantes-1", "ok")
                     .then((result) => {
                         if (result.ok) {
-                            setTimeout(() => onComplete(400), 500);
+                            setTimeout(() => onComplete(400), 400);
                         }
                     })
                     .catch((error) => {
@@ -91,25 +90,24 @@ export default function Enigme1Puzzle({ onComplete }) {
     if (imageUrls.length === 0)
         return <div>Aucune image disponible pour le puzzle (vérifier la BDD).</div>;
 
-    // rendering: grid of tiles; each tile is a cropped background image with CSS
     const total = gridSize * gridSize;
-    const tileSize = 120; // px
 
-    // create a mapping pos -> tile
     const posMap = [];
     tiles.forEach((t) => {
         posMap[t.pos] = t;
     });
 
+    const gridPx = tileSize * gridSize;
+
     return (
         <div className="text-center">
-            <h3 className="text-3xl font-bold mb-4">🎨 Énigme 1 : Le Puzzle</h3>
-            <p className="text-gray-300 mb-6">Reconstituez l'image native</p>
+            <h3 className="text-3xl font-bold mb-2">🎨 Énigme 1 : Le Puzzle</h3>
+            <p className="text-gray-300 mb-4">Reconstituez l'image native</p>
 
             <div
-                className="mx-auto mb-6"
+                className="mx-auto mb-4"
                 style={{
-                    width: tileSize * gridSize,
+                    width: gridPx,
                     display: "grid",
                     gridTemplateColumns: `repeat(${gridSize}, ${tileSize}px)`,
                     gap: 4,
@@ -119,7 +117,6 @@ export default function Enigme1Puzzle({ onComplete }) {
                     const tile = posMap[pos];
                     const imgUrl = tile?.img;
                     const index = tile?.correct ?? 0;
-                    // calculate background-position
                     const row = Math.floor(index / gridSize);
                     const col = index % gridSize;
                     const bgPosX = -(col * tileSize);
@@ -129,11 +126,11 @@ export default function Enigme1Puzzle({ onComplete }) {
                         <div
                             key={pos}
                             onClick={() => handleClick(tiles.findIndex((t) => t.pos === pos))}
-                            className={`aspect-square cursor-pointer rounded-md shadow-md border ${
+                            className={`${
                                 selected === tiles.findIndex((t) => t.pos === pos)
                                     ? "ring-4 ring-amber-400 scale-105"
                                     : ""
-                            }`}
+                            } cursor-pointer rounded-md`}
                             style={{
                                 width: tileSize,
                                 height: tileSize,
@@ -141,6 +138,7 @@ export default function Enigme1Puzzle({ onComplete }) {
                                 backgroundSize: `${tileSize * gridSize}px ${tileSize * gridSize}px`,
                                 backgroundPosition: `${bgPosX}px ${bgPosY}px`,
                                 backgroundRepeat: "no-repeat",
+                                transition: "transform 120ms ease" 
                             }}
                         />
                     );

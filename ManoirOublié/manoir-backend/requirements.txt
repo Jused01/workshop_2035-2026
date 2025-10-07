@@ -6,3 +6,4 @@ python-dotenv==1.0.1
 google-cloud-firestore==2.16.0
 google-auth==2.33.0
 pyjwt[crypto]==2.9.0
+mysql-connector-python==9.0.0
