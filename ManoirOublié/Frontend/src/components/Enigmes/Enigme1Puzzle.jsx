@@ -1,6 +1,7 @@
 // src/components/Enigmes/Enigme1Puzzle.jsx
 import React, { useEffect, useState } from "react";
-import { getEnigmeDoc, getDownloadUrls } from "../../services/firebase";
+import { getEnigmeDoc, getDownloadUrls } from "../../services/api";
+import { validatePuzzle } from "../../services/api";
 
 /**
  * Comportement :
@@ -72,7 +73,16 @@ export default function Enigme1Puzzle({ onComplete }) {
             setSelected(null);
 
             if (newTiles.every((t) => t.pos === t.correct)) {
-                setTimeout(() => onComplete(400), 500);
+                // Validate with backend
+                validatePuzzle("puzzle-nantes-1", "ok")
+                    .then((result) => {
+                        if (result.ok) {
+                            setTimeout(() => onComplete(400), 500);
+                        }
+                    })
+                    .catch((error) => {
+                        console.error("Validation failed:", error);
+                    });
             }
         }
     };

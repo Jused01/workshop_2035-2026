@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Users, Trophy, DoorOpen } from "lucide-react";
 
-export default function WaitingRoom({ roomCode, playerName, players, onReady, onStartGame }) {
+export default function WaitingRoom({ roomCode, playerName, players, onReady, onStartGame, loading, error }) {
     const [isReady, setIsReady] = useState(false);
     const allReady = players.length >= 1 && players.every((p) => p.ready);
 
@@ -72,11 +72,17 @@ export default function WaitingRoom({ roomCode, playerName, players, onReady, on
                     {allReady && (
                         <button
                             onClick={onStartGame}
-                            className="flex-1 bg-gradient-to-r from-amber-700 to-amber-600 py-4 rounded-xl font-bold text-lg hover:scale-105 transition-transform"
+                            disabled={loading}
+                            className="flex-1 bg-gradient-to-r from-amber-700 to-amber-600 py-4 rounded-xl font-bold text-lg hover:scale-105 transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             <DoorOpen className="inline-block mr-2 w-5 h-5" />
-                            Commencer l'aventure
+                            {loading ? "Démarrage..." : "Commencer l'aventure"}
                         </button>
+                    )}
+                    {error && (
+                        <div className="mt-4 p-3 bg-red-600/20 border border-red-600 rounded-lg text-red-200 text-sm">
+                            {error}
+                        </div>
                     )}
                 </div>
             </div>

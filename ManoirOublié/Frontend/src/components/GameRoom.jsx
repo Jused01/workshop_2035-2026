@@ -1,16 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { Clock, Trophy, MessageSquare } from "lucide-react";
-import { useSocket } from "../services/socket";
+import { useSocket } from "../services/Socket";
 import Enigme1Puzzle from "./Enigmes/Enigme1Puzzle";
 import Enigme2Lumiere from "./Enigmes/Enigme2Lumiere";
 import Enigme3Son from "./Enigmes/Enigme3Son";
 import Enigme4Timeline from "./Enigmes/Enigme4Timeline";
 
-export default function GameRoom({ roomCode, playerName, players }) {
-    const { messages, sendMessage } = useSocket(roomCode);
+export default function GameRoom({ gameId, roomCode, playerName, players, currentEnigme, score, onComplete }) {
+    const { messages, sendMessage, isConnected } = useSocket(gameId);
     const [chatInput, setChatInput] = useState("");
-    const [currentEnigme, setCurrentEnigme] = useState(props.currentEnigme || 1);
-    const [score, setScore] = useState(0);
     const [timeLeft, setTimeLeft] = useState(1800);
 
     useEffect(() => {
@@ -21,9 +19,7 @@ export default function GameRoom({ roomCode, playerName, players }) {
     }, []);
 
     const handleEnigmeComplete = (points) => {
-        setScore((prev) => prev + points);
-        if (currentEnigme < 4) setCurrentEnigme((prev) => prev + 1);
-        else alert("🎉 Victoire ! Vous avez résolu toutes les énigmes !");
+        onComplete(points);
     };
 
     const handleSendMessage = () => {

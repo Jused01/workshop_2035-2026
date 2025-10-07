@@ -1,86 +1,117 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Trophy, DoorOpen, UserRound, BookOpen, Sparkles } from "lucide-react";
 
-const HomeMenu = ({ onEnterManor }) => {
+const HomeMenu = ({ onEnterManor, loading, error }) => {
     const [playerX, setPlayerX] = useState(50);
     const [playerY, setPlayerY] = useState(80);
     const [playerName, setPlayerName] = useState("");
     const [showNameInput, setShowNameInput] = useState(false);
     const canvasRef = useRef(null);
     const rafRef = useRef(null);
-    const canvasWidth = 800;
-    const canvasHeight = 500;
+    const [canvasSize, setCanvasSize] = useState({ width: 800, height: 500 });
+
+    // Compute responsive canvas size based on viewport
+    useEffect(() => {
+        const computeSize = () => {
+            const maxWidth = Math.min(window.innerWidth - 48, 1200);
+            const maxHeight = Math.max(240, window.innerHeight - 260); // leave room for title/cards
+            const targetAspect = 800 / 500; // base aspect ratio
+            let width = maxWidth;
+            let height = Math.round(width / targetAspect);
+            if (height > maxHeight) {
+                height = maxHeight;
+                width = Math.round(height * targetAspect);
+            }
+            setCanvasSize({ width, height });
+        };
+        computeSize();
+        window.addEventListener('resize', computeSize);
+        return () => window.removeEventListener('resize', computeSize);
+    }, []);
 
     useEffect(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
         const ctx = canvas.getContext("2d");
-        canvas.width = canvasWidth;
-        canvas.height = canvasHeight;
+        const { width, height } = canvasSize;
+        canvas.width = width;
+        canvas.height = height;
 
         const drawScene = () => {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.clearRect(0, 0, width, height);
 
             // === ARRIÈRE-PLAN ===
-            const skyGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            const skyGradient = ctx.createLinearGradient(0, 0, 0, height);
             skyGradient.addColorStop(0, "#050a28");
             skyGradient.addColorStop(1, "#1a1030");
             ctx.fillStyle = skyGradient;
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillRect(0, 0, width, height);
 
             // Étoiles
             for (let i = 0; i < 150; i++) {
                 ctx.fillStyle = `rgba(255, 255, 255, ${Math.random() * 0.7})`;
                 ctx.beginPath();
-                ctx.arc(Math.random() * canvas.width, Math.random() * (canvas.height / 2), Math.random() * 1.2, 0, Math.PI * 2);
+                ctx.arc(Math.random() * width, Math.random() * (height / 2), Math.random() * 1.2, 0, Math.PI * 2);
                 ctx.fill();
             }
 
             // Lune
             ctx.beginPath();
             ctx.fillStyle = "#f5f3ce";
-            ctx.arc(700, 100, 40, 0, Math.PI * 2);
+            ctx.arc(width - 100, 100, Math.max(28, Math.min(40, width * 0.04)), 0, Math.PI * 2);
             ctx.fill();
             ctx.beginPath();
             ctx.fillStyle = "rgba(245, 243, 206, 0.2)";
-            ctx.arc(700, 100, 60, 0, Math.PI * 2);
+            ctx.arc(width - 100, 100, Math.max(40, Math.min(60, width * 0.06)), 0, Math.PI * 2);
             ctx.fill();
 
-            // === MUSÉE ===
+            // === MUSÉE === (scale to canvas)
+            const museumX = Math.round(width * 0.125);
+            const museumY = Math.round(height * 0.3);
+            const museumW = Math.round(width * 0.75);
+            const museumH = Math.round(height * 0.6);
             ctx.fillStyle = "#2d1b3d";
-            ctx.fillRect(100, 150, 600, 300);
+            ctx.fillRect(museumX, museumY, museumW, museumH);
             ctx.beginPath();
-            ctx.moveTo(80, 150);
-            ctx.lineTo(400, 80);
-            ctx.lineTo(720, 150);
+            ctx.moveTo(museumX - Math.round(width * 0.025), museumY);
+            ctx.lineTo(width / 2, Math.round(height * 0.16));
+            ctx.lineTo(museumX + museumW + Math.round(width * 0.025), museumY);
             ctx.closePath();
             ctx.fillStyle = "#3d2b4c";
             ctx.fill();
             ctx.fillStyle = "#1a1030";
-            ctx.fillRect(350, 250, 100, 150);
+            const doorW = Math.max(80, Math.round(width * 0.09));
+            const doorH = Math.max(130, Math.round(height * 0.26));
+            const doorX = Math.round(width / 2 - doorW / 2);
+            const doorY = Math.round(museumY + museumH - doorH - Math.max(20, height * 0.02));
+            ctx.fillRect(doorX, doorY, doorW, doorH);
             ctx.fillStyle = "#3a241d";
-            ctx.fillRect(360, 260, 80, 130);
+            ctx.fillRect(doorX + 10, doorY + 10, doorW - 20, doorH - 20);
             ctx.beginPath();
             ctx.fillStyle = "#d4af37";
-            ctx.arc(400, 325, 6, 0, Math.PI * 2);
+            ctx.arc(doorX + Math.round(doorW * 0.5), doorY + Math.round(doorH * 0.55), Math.max(4, Math.round(doorW * 0.06)), 0, Math.PI * 2);
             ctx.fill();
+
+            // Enseigne
             ctx.fillStyle = "#1a1030";
-            ctx.fillRect(370, 120, 160, 40);
-            ctx.font = "bold 20px Arial";
+            const signW = Math.max(140, Math.round(width * 0.2));
+            const signH = Math.max(28, Math.round(height * 0.06));
+            ctx.fillRect(Math.round(width / 2 - signW / 2), museumY - signH, signW, signH);
+            ctx.font = `${Math.max(16, Math.round(signH * 0.6))}px Arial`;
             ctx.fillStyle = "#d4af37";
             ctx.textAlign = "center";
-            ctx.fillText("MUSÉE OUBLIÉ", 450, 150);
+            ctx.fillText("MUSÉE OUBLIÉ", Math.round(width / 2), museumY - Math.round(signH * 0.3));
 
             // === SOL ===
             ctx.fillStyle = "#1a1020";
-            ctx.fillRect(0, 450, canvas.width, 50);
+            ctx.fillRect(0, height - Math.max(40, Math.round(height * 0.1)), width, Math.max(40, Math.round(height * 0.1)));
 
-            // === PERSONNAGE ===
-            const baseX = playerX * 8;
-            const baseY = playerY * 5;
+            // === PERSONNAGE === (scale with canvas)
+            const baseX = (playerX / 100) * width;
+            const baseY = (playerY / 100) * height;
             const t = Date.now() / 300;
-            const bobbing = Math.sin(t) * 2;
-            const legSwing = Math.sin(t * 2) * 8;
+            const bobbing = Math.sin(t) * Math.max(1.5, height * 0.004);
+            const legSwing = Math.sin(t * 2) * Math.max(6, height * 0.016);
 
             // Ombre
             ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
@@ -129,10 +160,8 @@ const HomeMenu = ({ onEnterManor }) => {
         };
 
         rafRef.current = requestAnimationFrame(drawScene);
-        return () => {
-            if (rafRef.current) cancelAnimationFrame(rafRef.current);
-        };
-    }, [playerX, playerY]);
+        return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+    }, [playerX, playerY, canvasSize]);
 
     const handleKeyPress = (e) => {
         const speed = 2;
@@ -142,9 +171,7 @@ const HomeMenu = ({ onEnterManor }) => {
             case "ArrowLeft": setPlayerX((p) => Math.max(10, p - speed)); break;
             case "ArrowRight": setPlayerX((p) => Math.min(100, p + speed)); break;
             case "Enter":
-                if (playerX > 40 && playerX < 60 && playerY > 70) {
-                    setShowNameInput(true);
-                }
+                if (playerX > 40 && playerX < 60 && playerY > 70) setShowNameInput(true);
                 break;
             default: break;
         }
@@ -160,92 +187,79 @@ const HomeMenu = ({ onEnterManor }) => {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-indigo-950 via-purple-950 to-gray-900 text-gray-200 p-8 flex flex-col items-center justify-center relative overflow-hidden">
-            {/* Décorations */}
-            <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
-                <div className="absolute top-20 left-20 w-96 h-64 bg-purple-900/20 rounded-full blur-3xl"></div>
-                <div className="absolute bottom-20 right-20 w-72 h-72 bg-blue-900/20 rounded-full blur-3xl"></div>
+        <div className="landing-root">
+            <div className="landing-decor">
+                <div className="blob-left"></div>
+                <div className="blob-right"></div>
             </div>
 
-            {/* Titre */}
-            <h1 className="text-6xl font-bold mb-6 text-center bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400 drop-shadow-lg z-10">
-                <Sparkles className="inline-block mr-4 w-12 h-12 text-amber-400" />
+            <h1 className="landing-title">
+                <Sparkles className="icon" />
                 Le Musée Oublié
             </h1>
 
-            {/* Sous-titre */}
-            <p className="text-xl mb-8 text-center text-indigo-200 italic max-w-2xl z-10">
+            <p className="landing-subtitle">
                 Un trésor artistique sommeille dans les ombres de Nantes... Osez percer ses mystères.
             </p>
 
-            {/* Zone de jeu */}
-            <div className="relative mb-8 w-full max-w-5xl z-10">
+            <div className="game-area">
                 <canvas
                     ref={canvasRef}
-                    width={canvasWidth}
-                    height={canvasHeight}
-                    className="border-4 border-indigo-600/50 rounded-2xl shadow-2xl bg-gray-900/50 mx-auto block"
+                    width={canvasSize.width}
+                    height={canvasSize.height}
+                    className="game-canvas"
                 />
 
-                {/* Cadrans d'information */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-                    {/* Histoire */}
-                    <div className="bg-gray-800/80 backdrop-blur-md p-6 rounded-xl border-2 border-indigo-600/30 shadow-lg">
-                        <div className="flex items-center gap-3 mb-3">
-                            <BookOpen className="w-6 h-6 text-indigo-400" />
-                            <h3 className="text-lg font-bold text-indigo-100">L'Histoire</h3>
+                <div className="info-grid">
+                    <div className="card">
+                        <div className="card-header">
+                            <BookOpen className="icon" />
+                            <h3 className="card-title">L'Histoire</h3>
                         </div>
-                        <p className="text-indigo-200 text-sm leading-relaxed">
+                        <p className="card-text">
                             Le Musée Oublié de Nantes renferme des œuvres perdues depuis des décennies.
                             Cinq énigmes protègent son secret ultime. Résolvez-les pour découvrir la vérité cachée.
                         </p>
                     </div>
 
-                    {/* Contrôles */}
-                    <div className="bg-gray-800/80 backdrop-blur-md p-6 rounded-xl border-2 border-indigo-600/30 shadow-lg">
-                        <div className="flex items-center gap-3 mb-3">
-                            <DoorOpen className="w-6 h-6 text-indigo-400" />
-                            <h3 className="text-lg font-bold text-indigo-100">Contrôles</h3>
+                    <div className="card">
+                        <div className="card-header">
+                            <DoorOpen className="icon" />
+                            <h3 className="card-title">Contrôles</h3>
                         </div>
-                        <div className="grid grid-cols-3 gap-2 mb-3">
+                        <div className="kbd-grid">
                             {["↑", "←", "→"].map((key, idx) => (
-                                <kbd key={idx} className="bg-indigo-600 text-white px-2 py-2 rounded-lg text-center font-bold shadow-md text-sm">
-                                    {key}
-                                </kbd>
+                                <kbd key={idx} className="kbd">{key}</kbd>
                             ))}
-                            <div className="col-start-2">
-                                <kbd className="bg-indigo-600 text-white px-2 py-2 rounded-lg text-center font-bold shadow-md text-sm block">
-                                    ↓
-                                </kbd>
+                            <div className="kbd--down">
+                                <kbd className="kbd">↓</kbd>
                             </div>
                         </div>
-                        <p className="text-indigo-200 text-xs">
-                            Appuyez sur <kbd className="bg-amber-500 text-black px-2 py-1 rounded font-bold">Entrée</kbd> devant la porte.
+                        <p className="card-text">
+                            Appuyez sur <kbd className="kbd">Entrée</kbd> devant la porte.
                         </p>
                     </div>
 
-                    {/* Objectif */}
-                    <div className="bg-gray-800/80 backdrop-blur-md p-6 rounded-xl border-2 border-indigo-600/30 shadow-lg">
-                        <div className="flex items-center gap-3 mb-3">
-                            <Trophy className="w-6 h-6 text-amber-400" />
-                            <h3 className="text-lg font-bold text-indigo-100">Objectif</h3>
+                    <div className="card">
+                        <div className="card-header">
+                            <Trophy className="icon" />
+                            <h3 className="card-title">Objectif</h3>
                         </div>
-                        <p className="text-indigo-200 text-sm leading-relaxed">
+                        <p className="card-text">
                             Résolvez les 5 énigmes artistiques pour découvrir la vérité cachée du musée et déverrouiller son trésor.
                         </p>
                     </div>
                 </div>
             </div>
 
-            {/* Pop-up pour le nom */}
             {showNameInput && (
-                <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50">
-                    <div className="bg-gray-800/95 backdrop-blur-lg p-10 rounded-2xl border border-indigo-600 shadow-2xl max-w-md w-full">
-                        <div className="flex items-center gap-4 mb-6">
-                            <UserRound className="w-12 h-12 text-indigo-400" />
+                <div className="modal-overlay">
+                    <div className="modal">
+                        <div className="modal-header">
+                            <UserRound className="icon" />
                             <div>
-                                <h2 className="text-3xl font-bold text-indigo-100">Bienvenue, Aventurier</h2>
-                                <p className="text-indigo-300 text-sm mt-1">Quel est votre nom ?</p>
+                                <h2 className="modal-title">Bienvenue, Aventurier</h2>
+                                <p className="modal-subtitle">Quel est votre nom ?</p>
                             </div>
                         </div>
                         <input
@@ -254,16 +268,14 @@ const HomeMenu = ({ onEnterManor }) => {
                             onChange={(e) => setPlayerName(e.target.value)}
                             onKeyPress={(e) => e.key === 'Enter' && handleStartGame()}
                             placeholder="Ex: Indiana Jones"
-                            className="w-full bg-gray-700/60 border border-indigo-600 rounded-lg px-5 py-4 mb-8 text-indigo-100 placeholder-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-lg"
+                            className="text-input"
                             autoFocus
                         />
-                        <button
-                            onClick={handleStartGame}
-                            className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 py-4 rounded-lg font-bold text-xl text-white hover:scale-105 transition-transform hover:shadow-lg flex items-center justify-center gap-3"
-                        >
-                            <DoorOpen className="w-6 h-6" />
-                            Entrer dans le Musée
+                        <button onClick={handleStartGame} disabled={loading} className="primary-btn">
+                            <DoorOpen className="icon" />
+                            {loading ? "Création de la partie..." : "Entrer dans le Musée"}
                         </button>
+                        {error && <div className="error-box">{error}</div>}
                     </div>
                 </div>
             )}
