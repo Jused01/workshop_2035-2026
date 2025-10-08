@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, {useEffect, useState} from "react";
 import HomeMenu from "./components/HomeMenu";
 import WaitingRoom from "./components/WaitingRoom";
 import EnigmeSelectionRoom from "./components/EnigmeSelectionRoom";
@@ -17,7 +17,6 @@ export default function App() {
     const [gameData, setGameData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
-
     const handleEnterManor = async (name) => {
         setLoading(true);
         setError("");
@@ -31,7 +30,7 @@ export default function App() {
             setPlayers([{ name, ready: false }]);
             setScreen("waiting");
         } catch (err) {
-            setError("Erreur lors de la création de la partie: " + err.message);
+            setError("Erreur lors de la création de la partie: " + (err.message || err));
         } finally {
             setLoading(false);
         }
@@ -65,27 +64,26 @@ export default function App() {
             setGameId(response.gameId);
             setPlayerToken(response.playerToken);
             localStorage.setItem('playerToken', response.playerToken);
+            setPlayers([{ name, ready: false }]);
             setScreen("waiting");
         } catch (err) {
-            setError("Erreur lors de la connexion à la partie: " + err.message);
+            setError("Erreur lors de la connexion: " + (err.message || err));
         } finally {
             setLoading(false);
         }
     };
 
     const handleReady = (name, ready) => {
-        setPlayers((prev) =>
-            prev.map((p) => (p.name === name ? { ...p, ready } : p))
-        );
+        setPlayers(prev => prev.map(p => p.name === name ? {...p, ready} : p));
     };
 
     const handleStartGame = async () => {
         setLoading(true);
         try {
-            await startGame();
+            await startGame(playerToken); // ✅ Passer le token si nécessaire
             setScreen("selection");
         } catch (err) {
-            setError("Erreur lors du démarrage de la partie: " + err.message);
+            setError("Erreur lors du démarrage: " + (err.message || err));
         } finally {
             setLoading(false);
         }

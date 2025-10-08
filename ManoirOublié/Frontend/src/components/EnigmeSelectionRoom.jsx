@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { BookOpen, Lightbulb, Music, Calendar, Sparkles, Trophy, UserRound } from "lucide-react";
 
-const EnigmeSelectionRoom = ({ playerName, players, score, onSelectEnigme }) => {
+const EnigmeSelectionRoom = ({ playerName, players = [], score = 0, onSelectEnigme }) => {
     const [playerX, setPlayerX] = useState(50);
     const [playerY, setPlayerY] = useState(80);
     const canvasRef = useRef(null);
@@ -96,7 +96,7 @@ const EnigmeSelectionRoom = ({ playerName, players, score, onSelectEnigme }) => 
 
             // === Portes des énigmes ===
             enigmes.forEach((enigme) => {
-                ctx.fillStyle = enigme.color + "33"; // couleur transparente
+                ctx.fillStyle = enigme.color + "33";
                 ctx.fillRect(enigme.posX, enigme.posY, 120, 180);
                 ctx.fillStyle = "#1a1030";
                 ctx.fillRect(enigme.posX + 10, enigme.posY + 10, 100, 160);
@@ -105,7 +105,6 @@ const EnigmeSelectionRoom = ({ playerName, players, score, onSelectEnigme }) => 
                 ctx.arc(enigme.posX + 60, enigme.posY + 100, 6, 0, Math.PI * 2);
                 ctx.fill();
 
-                // Nom sur la porte
                 ctx.font = "bold 16px Arial";
                 ctx.fillStyle = "#fff";
                 ctx.textAlign = "center";
@@ -132,30 +131,22 @@ const EnigmeSelectionRoom = ({ playerName, players, score, onSelectEnigme }) => 
         };
 
         const drawPlayer = (ctx, baseX, baseY, bobbing, legSwing, color, name) => {
-            // Ombre
             ctx.fillStyle = "rgba(0,0,0,0.3)";
             ctx.fillRect(baseX - 12, baseY + 50, 24, 4);
-            // Jambes
             ctx.fillStyle = "#4a5568";
             ctx.fillRect(baseX - 8, baseY + 30 + bobbing, 8, 15 - legSwing);
             ctx.fillRect(baseX, baseY + 30 + bobbing, 8, 15 + legSwing);
-            // Corps
             ctx.fillStyle = color;
             ctx.fillRect(baseX - 12, baseY + 10 + bobbing, 24, 25);
-            // Bras
             ctx.fillStyle = color;
             ctx.fillRect(baseX - 18, baseY + 15 + bobbing, 6, 18);
             ctx.fillRect(baseX + 12, baseY + 15 + bobbing, 6, 18);
-            // Tête
             ctx.fillStyle = "#ffd4b8";
             ctx.fillRect(baseX - 12, baseY - 15 + bobbing, 24, 20);
-            // Yeux
             ctx.fillStyle = "#000";
             ctx.fillRect(baseX - 8, baseY - 10 + bobbing, 3, 4);
             ctx.fillRect(baseX + 5, baseY - 10 + bobbing, 3, 4);
-            // Bouche
             ctx.fillRect(baseX - 3, baseY + 5 + bobbing, 6, 2);
-            // Nom au-dessus
             ctx.font = "bold 12px Arial";
             ctx.fillStyle = "#fff";
             ctx.textAlign = "center";
