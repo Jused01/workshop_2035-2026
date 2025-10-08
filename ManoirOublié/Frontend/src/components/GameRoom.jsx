@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { Clock, Trophy, MessageSquare } from "lucide-react";
+import { Clock, Trophy, MessageSquare, ArrowLeft } from "lucide-react";
 import { useSocket } from "../services/Socket";
 import Enigme1Puzzle from "./Enigmes/Enigme1Puzzle";
 import Enigme2Lumiere from "./Enigmes/Enigme2Lumiere";
 import Enigme3Son from "./Enigmes/Enigme3Son";
 import Enigme4Timeline from "./Enigmes/Enigme4Timeline";
 
-export default function GameRoom({ gameId, roomCode, playerName, players, currentEnigme, score, onComplete }) {
+export default function GameRoom({ gameId, roomCode, playerName, players, currentEnigme, score, onComplete, onReturn }) {
     const { messages, sendMessage, isConnected } = useSocket(gameId);
     const [chatInput, setChatInput] = useState("");
     const [timeLeft, setTimeLeft] = useState(1800);
@@ -17,6 +17,16 @@ export default function GameRoom({ gameId, roomCode, playerName, players, curren
         }, 1000);
         return () => clearInterval(timer);
     }, []);
+
+    useEffect(() => {
+        const onKey = (e) => {
+            if (e.key === "Escape") {
+                if (onReturn) onReturn();
+            }
+        };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, [onReturn]);
 
     const handleEnigmeComplete = (points) => {
         onComplete(points);
@@ -49,6 +59,16 @@ export default function GameRoom({ gameId, roomCode, playerName, players, curren
                         <div className="bg-gray-700 px-4 py-2 rounded-lg font-mono">
                             Énigme {currentEnigme}/4
                         </div>
+                    </div>
+                    <div>
+                        <button
+                            onClick={() => onReturn && onReturn()}
+                            className="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-gray-200 px-3 py-2 rounded-lg border border-gray-600"
+                            title="Retour"
+                        >
+                            <ArrowLeft className="w-5 h-5" />
+                            <span>Retour</span>
+                        </button>
                     </div>
                 </div>
 
@@ -104,5 +124,40 @@ export default function GameRoom({ gameId, roomCode, playerName, players, curren
                 </div>
             </div>
         </div>
+    );
+}
+// Floating always-on-top return button to avoid overlay issues
+// Ensures navigation works even if header is overlapped
+export function GameRoomReturnFloating({ onReturn }) {
+    return (
+        <button
+            onClick={() => {
+                if (onReturn) onReturn();
+                try { window.dispatchEvent(new CustomEvent('app:return')); } catch (_) {}
+            }}
+            type="button"
+            aria-label="Retour"
+            style={{
+                position: 'fixed',
+                left: '16px',
+                bottom: '16px',
+                zIndex: 2147483647,
+                pointerEvents: 'auto',
+                background: 'rgba(31,41,55,0.95)',
+                color: '#e5e7eb',
+                padding: '8px 12px',
+                borderRadius: '10px',
+                border: '1px solid #4b5563',
+                boxShadow: '0 6px 18px rgba(0,0,0,0.35)',
+                display: 'flex',
+                gap: '8px',
+                alignItems: 'center',
+                fontWeight: 700,
+                cursor: 'pointer'
+            }}
+        >
+            <span>← Retour</span>
+            <span style={{ fontSize: 12, opacity: 0.7 }}>(Esc)</span>
+        </button>
     );
 }

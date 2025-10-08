@@ -2,7 +2,8 @@
 import os, random, string, time
 from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, Response
+import requests
 from flask_cors import CORS
 from flask_socketio import SocketIO, join_room, emit
 
@@ -174,7 +175,18 @@ def validate_slug(slug):
     data = request.get_json(force=True) or {}
     attempt = (data.get("attempt") or "").strip().lower()
 
-    ok = attempt in EXPECTED.get(slug, [])
+    # Accept static expected answers
+    allowed = set(EXPECTED.get(slug, []))
+    # Additionally, for the first puzzle, accept the DB solution if present
+    if slug == "puzzle-nantes-1":
+        row = query_one("SELECT solution FROM Enigme1_Puzzle ORDER BY id_puzzle DESC LIMIT 1")
+        if row:
+            sol = (row.get("solution") if isinstance(row, dict) else row["solution"]) or ""
+            if sol:
+                allowed.add(str(sol).strip().lower())
+
+    ok = attempt in allowed
+
     st = query_one("SELECT attempts, solved FROM runtime_state WHERE game_id=%s", (gid,)) or {"attempts": 0, "solved": 0}
     attempts = int(st.get("attempts", 0)) + 1
     solved = 1 if ok else int(st.get("solved", 0))
@@ -205,6 +217,94 @@ def validate_slug(slug):
 
     return jsonify({"ok": ok})
 
+@app.get("/api/enigmes/1")
+def get_enigme1():
+    try:
+        row = query_one(
+            "SELECT url_photo_1, url_photo_2, url_photo_3 FROM Enigme1_Puzzle ORDER BY id_puzzle DESC LIMIT 1"
+        )
+        if not row:
+            return jsonify({"images": []})
+        images = [row.get("url_photo_1"), row.get("url_photo_2"), row.get("url_photo_3")] \
+            if isinstance(row, dict) else [row["url_photo_1"], row["url_photo_2"], row["url_photo_3"]]
+        return jsonify({"images": [u for u in images if u]})
+    except Exception as e:
+        return jsonify({"images": [], "error": str(e)}), 500
+
+@app.get("/api/enigmes/3")
+def get_enigme3():
+    """Retourne l'URL du son pour l'énigme 3 depuis MySQL.
+    Essaie plusieurs noms de colonnes/tables possibles et renvoie la plus récente.
+    """
+    # Try a few common schemas without crashing the app if one doesn't exist
+    sound_attempts = [
+        ("SELECT url_audio, options_json, correct FROM Enigme3_Son ORDER BY id DESC LIMIT 1", ["url_audio", "options_json", "correct"]),
+        ("SELECT sound_url, options_json, correct FROM Enigme3_Son ORDER BY id DESC LIMIT 1", ["sound_url", "options_json", "correct"]),
+        ("SELECT url_son, options_json, correct FROM Enigme3_Son ORDER BY id DESC LIMIT 1", ["url_son", "options_json", "correct"]),
+        ("SELECT url_audio, option1, option2, option3, correct FROM Enigme3_Son ORDER BY id DESC LIMIT 1", ["url_audio", "option1", "option2", "option3", "correct"]),
+        ("SELECT sound_url, option1, option2, option3, correct FROM Enigme3_Son ORDER BY id DESC LIMIT 1", ["sound_url", "option1", "option2", "option3", "correct"]),
+        ("SELECT audio, options_json, answer as correct FROM Enigme3 ORDER BY id DESC LIMIT 1", ["audio", "options_json", "correct"]),
+        ("SELECT audio_url as url_audio, options as options_json, correct FROM Enigme3 ORDER BY id DESC LIMIT 1", ["url_audio", "options_json", "correct"]),
+    ]
+
+    import json
+
+    for sql, keys in sound_attempts:
+        try:
+            row = query_one(sql)
+            if not row:
+                continue
+            # Normalize dict-like access
+            def g(k):
+                return row.get(k) if isinstance(row, dict) else row[k]
+
+            # Extract sound URL candidate
+            sound_key = None
+            for k in ("url_audio", "sound_url", "url_son", "audio"):
+                if k in keys:
+                    sound_key = k
+                    break
+            sound_url = g(sound_key) if sound_key else None
+
+            # Extract options
+            options = []
+            if "options_json" in keys:
+                raw = g("options_json")
+                if raw:
+                    try:
+                        parsed = json.loads(raw) if isinstance(raw, str) else raw
+                        if isinstance(parsed, list):
+                            options = [str(x) for x in parsed if x]
+                    except Exception:
+                        options = []
+            else:
+                opts = []
+                for k in ("option1", "option2", "option3", "option4"):
+                    if k in keys:
+                        v = g(k)
+                        if v:
+                            opts.append(str(v))
+                options = [o for o in opts if o]
+
+            correct = None
+            if "correct" in keys:
+                c = g("correct")
+                correct = str(c) if c is not None else None
+
+            resp = {
+                "sounds": [sound_url] if sound_url else [],
+                "options": options,
+                "correct": correct,
+            }
+            # Return as soon as we have at least sound or options/correct
+            if resp["sounds"] or resp["options"] or resp["correct"]:
+                return jsonify(resp)
+        except Exception:
+            continue
+
+    # As a last resort, return empty payload
+    return jsonify({"sounds": [], "options": [], "correct": None})
+
 # ---------- SOCKET.IO ----------
 @socketio.on("connect")
 def on_connect():
@@ -213,6 +313,16 @@ def on_connect():
 @socketio.on("room:join")
 def on_room_join(data):
     claims = read_token_from_header()
+    if not claims:
+        # try token from event payload
+        try:
+            import jwt
+            from services.auth import JWT_SECRET
+            token = (data or {}).get("token")
+            if token:
+                claims = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        except Exception:
+            claims = None
     if not claims:
         emit("system:error", {"msg": "unauthorized"}); return
     gid = claims["gid"]
@@ -241,6 +351,69 @@ def on_puzzle_state(data):
 @app.get("/health")
 def health():
     return {"ok": True}
+
+@app.get("/audio-proxy")
+def audio_proxy():
+    """Proxy audio pour contourner les problèmes CORS"""
+    url = request.args.get("url")
+    if not url:
+        return jsonify({"error": "missing_url"}), 400
+
+    try:
+        # Forward Range header if present for streaming support
+        range_header = request.headers.get('Range')
+        req_headers = {"Range": range_header} if range_header else {}
+        r = requests.get(url, headers=req_headers, stream=True, timeout=15)
+        if r.status_code not in (200, 206):
+            return jsonify({"error": "fetch_failed", "status": r.status_code}), 400
+
+        # Best-effort content type detection
+        ct = r.headers.get("Content-Type") or ""
+        if not ct or ct == "application/octet-stream":
+            lower = url.lower()
+            if lower.endswith('.mp3'):
+                ct = 'audio/mpeg'
+            elif lower.endswith('.wav'):
+                ct = 'audio/wav'
+            elif lower.endswith('.ogg') or lower.endswith('.oga'):
+                ct = 'audio/ogg'
+            else:
+                ct = 'audio/mpeg'
+
+        headers = {
+            "Content-Type": ct,
+            "Access-Control-Allow-Origin": "*",
+        }
+        # Pass through range/length headers if present
+        for h in ("Content-Range", "Accept-Ranges", "Content-Length"):
+            if r.headers.get(h):
+                headers[h] = r.headers[h]
+
+        status = r.status_code
+        return Response(r.iter_content(chunk_size=65536), headers=headers, status=status)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.get("/image-proxy")
+def image_proxy():
+    """Proxy image pour contourner les problèmes CORS/mixed content"""
+    url = request.args.get("url")
+    if not url:
+        return jsonify({"error": "missing_url"}), 400
+
+    try:
+        r = requests.get(url, stream=True, timeout=10)
+        if r.status_code != 200:
+            return jsonify({"error": "fetch_failed", "status": r.status_code}), 400
+
+        content_type = r.headers.get("Content-Type", "image/jpeg")
+        headers = {
+            "Content-Type": content_type,
+            "Access-Control-Allow-Origin": "*"
+        }
+        return Response(r.iter_content(chunk_size=4096), headers=headers)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
     socketio.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 5000)))

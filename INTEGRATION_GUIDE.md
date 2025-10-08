@@ -28,7 +28,7 @@ The frontend and backend have been successfully integrated. Here's what has been
 - Added event handlers for all backend events
 - Proper authentication and room management
 
-### 3. App Component (`src/App.JSX`)
+### 3. App Component (`src/App.jsx`)
 - Updated to use backend API for game creation/joining
 - Added loading and error states
 - Proper token management

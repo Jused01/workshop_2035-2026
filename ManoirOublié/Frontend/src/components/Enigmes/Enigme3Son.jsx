@@ -1,6 +1,6 @@
 // src/components/Enigmes/Enigme3Son.jsx
 import React, { useEffect, useState } from "react";
-import { getEnigmeDoc, getDownloadUrls } from "../../services/firebase";
+import { getEnigme3, buildAudioProxiedUrl } from "../../services/api";
 
 export default function Enigme3Son({ onComplete }) {
     const [loading, setLoading] = useState(true);
@@ -11,24 +11,37 @@ export default function Enigme3Son({ onComplete }) {
 
     useEffect(() => {
         (async () => {
-            const doc = await getEnigmeDoc("enigme3");
-            if (!doc) {
-                setLoading(false);
-                return;
-            }
-            // doc.example: { sounds: ["enigmes/enigme3/elephant.mp3"], options: ["éléphant","bateau","machine"], correct: "éléphant" }
-            const urls = await getDownloadUrls(doc.sounds || []);
-            setSoundUrl(urls[0] || null);
-            setOptions(doc.options || []);
-            setCorrectKey(doc.correct || null);
+            const data = await getEnigme3();
+            const raw = (data.sounds && data.sounds[0]) || null;
+            const proxied = buildAudioProxiedUrl(raw);
+            setSoundUrl(proxied || raw);
+            setOptions(data.options || []);
+            setCorrectKey(data.correct || null);
             setLoading(false);
         })();
     }, []);
 
     const play = () => {
-        if (!audioRef.current && soundUrl) audioRef.current = new Audio(soundUrl);
-        audioRef.current && audioRef.current.play();
+        if (!soundUrl) {
+            alert("Le son n'est pas encore prêt !");
+            return;
+        }
+    
+        if (!audioRef.current) {
+            audioRef.current = new Audio(soundUrl);
+        } else {
+            // si l'URL a changé, recharge-la
+            if (audioRef.current.src !== soundUrl) {
+                audioRef.current.src = soundUrl;
+            }
+        }
+    
+        audioRef.current.play().catch((err) => {
+            console.error("Erreur lecture audio :", err);
+            alert("Impossible de lire le son. Vérifie l'URL ou les permissions navigateur.");
+        });
     };
+    
 
     const handleChoice = (choice) => {
         if (!choice) return;
