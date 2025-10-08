@@ -3,7 +3,7 @@ from mysql.connector import pooling
 from urllib.parse import urlparse
 from dotenv import load_dotenv
 
-# Charge le .env local (ou variables déjà dans l'environnement Clever Cloud)
+# Charge le ..env local (ou variables déjà dans l'environnement Clever Cloud)
 load_dotenv()
 
 _pool = None

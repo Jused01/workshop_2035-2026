@@ -1,16 +1,20 @@
 import React, { useState, useEffect } from "react";
 import { Clock, Trophy, MessageSquare } from "lucide-react";
 import { useSocket } from "../services/Socket";
+
+// Import des énigmes
 import Enigme1Puzzle from "./Enigmes/Enigme1Puzzle";
 import Enigme2Lumiere from "./Enigmes/Enigme2Lumiere";
 import Enigme3Son from "./Enigmes/Enigme3Son";
 import Enigme4Timeline from "./Enigmes/Enigme4Timeline";
+import Enigme5Poem from "./Enigmes/Enigme5Poem";
 
 export default function GameRoom({ gameId, roomCode, playerName, players, currentEnigme, score, onComplete }) {
     const { messages, sendMessage, isConnected } = useSocket(gameId);
     const [chatInput, setChatInput] = useState("");
-    const [timeLeft, setTimeLeft] = useState(1800);
+    const [timeLeft, setTimeLeft] = useState(1800); // 30 minutes par défaut
 
+    // Timer de la partie
     useEffect(() => {
         const timer = setInterval(() => {
             setTimeLeft((prev) => Math.max(0, prev - 1));
@@ -18,10 +22,12 @@ export default function GameRoom({ gameId, roomCode, playerName, players, curren
         return () => clearInterval(timer);
     }, []);
 
+    // Callback pour quand une énigme est réussie
     const handleEnigmeComplete = (points) => {
         onComplete(points);
     };
 
+    // Envoi du message chat
     const handleSendMessage = () => {
         if (chatInput.trim()) {
             sendMessage(chatInput);
@@ -38,35 +44,29 @@ export default function GameRoom({ gameId, roomCode, playerName, players, curren
                         <div className="flex items-center gap-2">
                             <Clock className="w-6 h-6 text-red-400" />
                             <span className="font-mono text-2xl font-bold">
-                {Math.floor(timeLeft / 60)}:
+                                {Math.floor(timeLeft / 60)}:
                                 {(timeLeft % 60).toString().padStart(2, "0")}
-              </span>
+                            </span>
                         </div>
                         <div className="flex items-center gap-2">
                             <Trophy className="w-6 h-6 text-amber-500" />
                             <span className="font-bold text-xl">Score : {score}</span>
                         </div>
                         <div className="bg-gray-700 px-4 py-2 rounded-lg font-mono">
-                            Énigme {currentEnigme}/4
+                            Énigme {currentEnigme}/5
                         </div>
                     </div>
                 </div>
 
+                {/* Corps du jeu */}
                 <div className="grid lg:grid-cols-3 gap-4">
                     {/* Zone énigmes */}
                     <div className="lg:col-span-2 bg-gray-800/80 rounded-xl p-8 border border-gray-700">
-                        {currentEnigme === 1 && (
-                            <Enigme1Puzzle onComplete={handleEnigmeComplete} />
-                        )}
-                        {currentEnigme === 2 && (
-                            <Enigme2Lumiere onComplete={handleEnigmeComplete} />
-                        )}
-                        {currentEnigme === 3 && (
-                            <Enigme3Son onComplete={handleEnigmeComplete} />
-                        )}
-                        {currentEnigme === 4 && (
-                            <Enigme4Timeline onComplete={handleEnigmeComplete} />
-                        )}
+                        {currentEnigme === 1 && <Enigme1Puzzle onComplete={handleEnigmeComplete} />}
+                        {currentEnigme === 2 && <Enigme2Lumiere onComplete={handleEnigmeComplete} />}
+                        {currentEnigme === 3 && <Enigme3Son onComplete={handleEnigmeComplete} />}
+                        {currentEnigme === 4 && <Enigme4Timeline onComplete={handleEnigmeComplete} />}
+                        {currentEnigme === 5 && <Enigme5Poem onComplete={handleEnigmeComplete} />}
                     </div>
 
                     {/* Chat */}
@@ -75,11 +75,11 @@ export default function GameRoom({ gameId, roomCode, playerName, players, curren
                             <MessageSquare className="w-6 h-6" /> Chat d’équipe
                         </h3>
                         <div className="flex-1 overflow-y-auto space-y-2 mb-3">
-                            {messages.map((msg) => (
-                                <div key={msg.id} className="bg-gray-700/40 p-3 rounded text-sm">
-                  <span className="font-semibold text-amber-400">
-                    {msg.sender}
-                  </span>
+                            {messages.map((msg, idx) => (
+                                <div key={idx} className="bg-gray-700/40 p-3 rounded text-sm">
+                                    <span className="font-semibold text-amber-400">
+                                        {msg.sender}
+                                    </span>
                                     <p className="text-gray-300 mt-1">{msg.text}</p>
                                 </div>
                             ))}

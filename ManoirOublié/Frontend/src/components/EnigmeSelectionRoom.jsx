@@ -1,31 +1,43 @@
 import React, { useState, useEffect, useRef } from "react";
-import { DoorOpen, BookOpen, Lightbulb, Music, Calendar, Sparkles, Trophy } from "lucide-react";
+import { BookOpen, Lightbulb, Music, Calendar, Sparkles, Trophy, UserRound } from "lucide-react";
 
-const EnigmeSelectionRoom = ({ playerName, score, onSelectEnigme }) => {
+const EnigmeSelectionRoom = ({ playerName, players, score, onSelectEnigme }) => {
     const [playerX, setPlayerX] = useState(50);
     const [playerY, setPlayerY] = useState(80);
     const canvasRef = useRef(null);
     const rafRef = useRef(null);
-    const canvasWidth = 1000;
-    const canvasHeight = 600;
+    const canvasWidth = 1200;
+    const canvasHeight = 700;
 
+    // 5 énigmes avec positions et hitbox
     const enigmes = [
-        { id: 1, title: "Puzzle Artistique", icon: <BookOpen />, color: "border-blue-500", bgColor: "bg-blue-500/20", posX: 150, posY: 200, hitbox: { x1: 130, x2: 270, y1: 180, y2: 380 } },
-        { id: 2, title: "Lumière Mystérieuse", icon: <Lightbulb />, color: "border-yellow-500", bgColor: "bg-yellow-500/20", posX: 350, posY: 200, hitbox: { x1: 330, x2: 470, y1: 180, y2: 380 } },
-        { id: 3, title: "Mélodie Perdue", icon: <Music />, color: "border-purple-500", bgColor: "bg-purple-500/20", posX: 550, posY: 200, hitbox: { x1: 530, x2: 670, y1: 180, y2: 380 } },
-        { id: 4, title: "Chronologie Oubliée", icon: <Calendar />, color: "border-green-500", bgColor: "bg-green-500/20", posX: 750, posY: 200, hitbox: { x1: 730, x2: 870, y1: 180, y2: 380 } },
+        { id: 1, title: "Puzzle Artistique", icon: <BookOpen />, color: "#3b82f6", posX: 150, posY: 250, hitbox: { x1: 150, x2: 270, y1: 250, y2: 430 } },
+        { id: 2, title: "Lumière Mystérieuse", icon: <Lightbulb />, color: "#facc15", posX: 350, posY: 250, hitbox: { x1: 350, x2: 470, y1: 250, y2: 430 } },
+        { id: 3, title: "Mélodie Perdue", icon: <Music />, color: "#a78bfa", posX: 550, posY: 250, hitbox: { x1: 550, x2: 670, y1: 250, y2: 430 } },
+        { id: 4, title: "Chronologie Oubliée", icon: <Calendar />, color: "#22c55e", posX: 750, posY: 250, hitbox: { x1: 750, x2: 870, y1: 250, y2: 430 } },
+        { id: 5, title: "Énigme d'un Autre Temps", icon: <Sparkles />, color: "#ec4899", posX: 950, posY: 250, hitbox: { x1: 950, x2: 1070, y1: 250, y2: 430 } },
+    ];
+
+    // Joueurs multijoueur simulés
+    const playerPositions = [
+        { x: 30, y: 70, color: "#5c7cfa" },
+        { x: 70, y: 70, color: "#e64980" },
+        { x: 30, y: 30, color: "#ffd4b8" },
+        { x: 70, y: 30, color: "#6c8cd5" },
     ];
 
     useEffect(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
         const ctx = canvas.getContext("2d");
+
         canvas.width = canvasWidth;
         canvas.height = canvasHeight;
 
         const drawScene = () => {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            // === ARRIÈRE-PLAN ===
+
+            // === Arrière-plan ciel étoilé ===
             const skyGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
             skyGradient.addColorStop(0, "#050a28");
             skyGradient.addColorStop(1, "#1a1030");
@@ -33,7 +45,7 @@ const EnigmeSelectionRoom = ({ playerName, score, onSelectEnigme }) => {
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
             // Étoiles
-            for (let i = 0; i < 200; i++) {
+            for (let i = 0; i < 300; i++) {
                 ctx.fillStyle = `rgba(255, 255, 255, ${Math.random() * 0.7})`;
                 ctx.beginPath();
                 ctx.arc(Math.random() * canvas.width, Math.random() * (canvas.height / 2), Math.random() * 1.2, 0, Math.PI * 2);
@@ -43,41 +55,48 @@ const EnigmeSelectionRoom = ({ playerName, score, onSelectEnigme }) => {
             // Lune
             ctx.beginPath();
             ctx.fillStyle = "#f5f3ce";
-            ctx.arc(850, 100, 40, 0, Math.PI * 2);
+            ctx.arc(1000, 100, 50, 0, Math.PI * 2);
             ctx.fill();
             ctx.beginPath();
             ctx.fillStyle = "rgba(245, 243, 206, 0.2)";
-            ctx.arc(850, 100, 60, 0, Math.PI * 2);
+            ctx.arc(1000, 100, 70, 0, Math.PI * 2);
             ctx.fill();
 
-            // === MUSÉE ===
+            // === Musée ===
             ctx.fillStyle = "#2d1b3d";
-            ctx.fillRect(100, 150, 800, 350);
+            ctx.fillRect(50, 150, 1100, 400);
+            // Toit
             ctx.beginPath();
-            ctx.moveTo(80, 150);
-            ctx.lineTo(450, 80);
-            ctx.lineTo(820, 150);
+            ctx.moveTo(30, 150);
+            ctx.lineTo(550, 80);
+            ctx.lineTo(1170, 150);
             ctx.closePath();
             ctx.fillStyle = "#3d2b4c";
             ctx.fill();
-            ctx.fillStyle = "#1a1030";
-            ctx.fillRect(400, 300, 200, 200);
+            // Porte principale
+            ctx.fillStyle = "#5c3a21";
+            ctx.fillRect(500, 350, 200, 200);
             ctx.fillStyle = "#3a241d";
-            ctx.fillRect(410, 310, 180, 180);
+            ctx.fillRect(510, 360, 180, 180);
             ctx.beginPath();
             ctx.fillStyle = "#d4af37";
-            ctx.arc(500, 400, 8, 0, Math.PI * 2);
+            ctx.arc(600, 450, 8, 0, Math.PI * 2);
             ctx.fill();
+            // Panneau Musée
             ctx.fillStyle = "#1a1030";
-            ctx.fillRect(420, 120, 160, 40);
-            ctx.font = "bold 20px Arial";
+            ctx.fillRect(520, 120, 160, 40);
+            ctx.font = "bold 24px Arial";
             ctx.fillStyle = "#d4af37";
             ctx.textAlign = "center";
-            ctx.fillText("MUSÉE OUBLIÉ", 500, 150);
+            ctx.fillText("MUSÉE OUBLIÉ", 600, 150);
 
-            // === PORTES DES ÉNIGMES ===
+            // Sol
+            ctx.fillStyle = "#1a1020";
+            ctx.fillRect(0, 550, canvas.width, 150);
+
+            // === Portes des énigmes ===
             enigmes.forEach((enigme) => {
-                ctx.fillStyle = enigme.color.replace("border", "rgba") + "/0.3";
+                ctx.fillStyle = enigme.color + "33"; // couleur transparente
                 ctx.fillRect(enigme.posX, enigme.posY, 120, 180);
                 ctx.fillStyle = "#1a1030";
                 ctx.fillRect(enigme.posX + 10, enigme.posY + 10, 100, 160);
@@ -85,74 +104,70 @@ const EnigmeSelectionRoom = ({ playerName, score, onSelectEnigme }) => {
                 ctx.fillStyle = "#d4af37";
                 ctx.arc(enigme.posX + 60, enigme.posY + 100, 6, 0, Math.PI * 2);
                 ctx.fill();
-                ctx.font = "bold 14px Arial";
+
+                // Nom sur la porte
+                ctx.font = "bold 16px Arial";
                 ctx.fillStyle = "#fff";
                 ctx.textAlign = "center";
                 ctx.fillText(enigme.title, enigme.posX + 60, enigme.posY + 50);
             });
 
-            // === SOL ===
-            ctx.fillStyle = "#1a1020";
-            ctx.fillRect(0, 500, canvas.width, 100);
-
-            // === PERSONNAGE ===
-            const baseX = playerX * 10;
-            const baseY = playerY * 6;
+            // === Joueur principal ===
+            const baseX = playerX * 12;
+            const baseY = playerY * 7;
             const t = Date.now() / 300;
             const bobbing = Math.sin(t) * 2;
             const legSwing = Math.sin(t * 2) * 8;
+            drawPlayer(ctx, baseX, baseY, bobbing, legSwing, "#5c7cfa", playerName);
 
-            // Ombre
-            ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
-            ctx.fillRect(baseX - 12, baseY + 50, 24, 4);
-
-            // Jambes
-            ctx.fillStyle = "#4a5568";
-            ctx.fillRect(baseX - 8, baseY + 30 + bobbing, 8, 15 - legSwing);
-            ctx.fillRect(baseX + 0, baseY + 30 + bobbing, 8, 15 + legSwing);
-            ctx.fillStyle = "#1a202c";
-            ctx.fillRect(baseX - 8, baseY + 45 + bobbing - legSwing, 8, 5);
-            ctx.fillRect(baseX + 0, baseY + 45 + bobbing + legSwing, 8, 5);
-
-            // Corps
-            ctx.fillStyle = "#5c7cfa";
-            ctx.fillRect(baseX - 12, baseY + 10 + bobbing, 24, 25);
-            ctx.fillStyle = "#4c6ef5";
-            ctx.fillRect(baseX - 12, baseY + 10 + bobbing, 4, 25);
-            ctx.fillStyle = "#748ffc";
-            ctx.fillRect(baseX + 8, baseY + 10 + bobbing, 4, 25);
-
-            // Bras
-            ctx.fillStyle = "#5c7cfa";
-            ctx.fillRect(baseX - 18, baseY + 15 + bobbing, 6, 18);
-            ctx.fillRect(baseX + 12, baseY + 15 + bobbing, 6, 18);
-            ctx.fillStyle = "#ffd4b8";
-            ctx.fillRect(baseX - 18, baseY + 33 + bobbing, 6, 5);
-            ctx.fillRect(baseX + 12, baseY + 33 + bobbing, 6, 5);
-
-            // Tête
-            ctx.fillStyle = "#ffd4b8";
-            ctx.fillRect(baseX - 12, baseY - 10 + bobbing, 24, 20);
-            ctx.fillStyle = "#ffcaa0";
-            ctx.fillRect(baseX - 12, baseY - 10 + bobbing, 4, 20);
-            ctx.fillStyle = "#ffe0cc";
-            ctx.fillRect(baseX + 8, baseY - 10 + bobbing, 4, 20);
-            ctx.fillStyle = "#8b5a3c";
-            ctx.fillRect(baseX - 12, baseY - 15 + bobbing, 24, 5);
-            ctx.fillStyle = "#000";
-            ctx.fillRect(baseX - 8, baseY - 5 + bobbing, 3, 4);
-            ctx.fillRect(baseX + 5, baseY - 5 + bobbing, 3, 4);
-            ctx.fillStyle = "#000";
-            ctx.fillRect(baseX - 3, baseY + 5 + bobbing, 6, 2);
+            // Autres joueurs
+            players.forEach((player, index) => {
+                if (player.name !== playerName) {
+                    const pos = playerPositions[index % playerPositions.length];
+                    drawPlayer(ctx, pos.x * 12, pos.y * 7, Math.sin(t) * 2, Math.sin(t * 2) * 8, pos.color, player.name);
+                }
+            });
 
             rafRef.current = requestAnimationFrame(drawScene);
         };
 
-        rafRef.current = requestAnimationFrame(drawScene);
+        const drawPlayer = (ctx, baseX, baseY, bobbing, legSwing, color, name) => {
+            // Ombre
+            ctx.fillStyle = "rgba(0,0,0,0.3)";
+            ctx.fillRect(baseX - 12, baseY + 50, 24, 4);
+            // Jambes
+            ctx.fillStyle = "#4a5568";
+            ctx.fillRect(baseX - 8, baseY + 30 + bobbing, 8, 15 - legSwing);
+            ctx.fillRect(baseX, baseY + 30 + bobbing, 8, 15 + legSwing);
+            // Corps
+            ctx.fillStyle = color;
+            ctx.fillRect(baseX - 12, baseY + 10 + bobbing, 24, 25);
+            // Bras
+            ctx.fillStyle = color;
+            ctx.fillRect(baseX - 18, baseY + 15 + bobbing, 6, 18);
+            ctx.fillRect(baseX + 12, baseY + 15 + bobbing, 6, 18);
+            // Tête
+            ctx.fillStyle = "#ffd4b8";
+            ctx.fillRect(baseX - 12, baseY - 15 + bobbing, 24, 20);
+            // Yeux
+            ctx.fillStyle = "#000";
+            ctx.fillRect(baseX - 8, baseY - 10 + bobbing, 3, 4);
+            ctx.fillRect(baseX + 5, baseY - 10 + bobbing, 3, 4);
+            // Bouche
+            ctx.fillRect(baseX - 3, baseY + 5 + bobbing, 6, 2);
+            // Nom au-dessus
+            ctx.font = "bold 12px Arial";
+            ctx.fillStyle = "#fff";
+            ctx.textAlign = "center";
+            ctx.fillText(name, baseX, baseY - 25 + bobbing);
+        };
+
+        drawScene();
+
         return () => {
             if (rafRef.current) cancelAnimationFrame(rafRef.current);
         };
-    }, [playerX, playerY]);
+    }, [playerX, playerY, players]);
 
     const handleKeyPress = (e) => {
         const speed = 2;
@@ -163,12 +178,9 @@ const EnigmeSelectionRoom = ({ playerName, score, onSelectEnigme }) => {
             case "ArrowRight": setPlayerX((p) => Math.min(100, p + speed)); break;
             case "Enter":
                 enigmes.forEach((enigme) => {
-                    if (
-                        playerX * 10 > enigme.hitbox.x1 &&
-                        playerX * 10 < enigme.hitbox.x2 &&
-                        playerY * 6 > enigme.hitbox.y1 &&
-                        playerY * 6 < enigme.hitbox.y2
-                    ) {
+                    const px = playerX * 12;
+                    const py = playerY * 7;
+                    if (px > enigme.hitbox.x1 && px < enigme.hitbox.x2 && py > enigme.hitbox.y1 && py < enigme.hitbox.y2) {
                         onSelectEnigme(enigme.id);
                     }
                 });
@@ -183,12 +195,7 @@ const EnigmeSelectionRoom = ({ playerName, score, onSelectEnigme }) => {
         const mouseY = e.clientY - rect.top;
 
         enigmes.forEach((enigme) => {
-            if (
-                mouseX > enigme.posX &&
-                mouseX < enigme.posX + 120 &&
-                mouseY > enigme.posY &&
-                mouseY < enigme.posY + 180
-            ) {
+            if (mouseX > enigme.hitbox.x1 && mouseX < enigme.hitbox.x2 && mouseY > enigme.hitbox.y1 && mouseY < enigme.hitbox.y2) {
                 onSelectEnigme(enigme.id);
             }
         });
@@ -197,7 +204,7 @@ const EnigmeSelectionRoom = ({ playerName, score, onSelectEnigme }) => {
     useEffect(() => {
         window.addEventListener("keydown", handleKeyPress);
         return () => window.removeEventListener("keydown", handleKeyPress);
-    }, [playerX, playerY]);
+    }, [playerX, playerY, players]);
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-indigo-950 via-purple-950 to-gray-900 text-gray-200 p-8 flex flex-col items-center justify-center relative">
@@ -206,9 +213,15 @@ const EnigmeSelectionRoom = ({ playerName, score, onSelectEnigme }) => {
                 Choisissez une Énigme
             </h1>
 
-            <div className="flex items-center gap-4 mb-8 bg-gray-800/80 backdrop-blur-md p-4 rounded-xl border border-indigo-600/30 shadow-lg">
-                <Trophy className="w-8 h-8 text-amber-400" />
-                <span className="text-xl font-bold text-indigo-100">Score actuel: {score}</span>
+            <div className="flex justify-between w-full max-w-6xl mb-4">
+                <div className="bg-gray-800/80 backdrop-blur-md p-4 rounded-xl border border-indigo-600/30 shadow-lg flex items-center gap-3">
+                    <Trophy className="w-8 h-8 text-amber-400" />
+                    <span className="text-xl font-bold text-indigo-100">Score: {score}</span>
+                </div>
+                <div className="bg-gray-800/80 backdrop-blur-md p-4 rounded-xl border border-indigo-600/30 shadow-lg flex items-center gap-3">
+                    <UserRound className="w-8 h-8 text-indigo-400" />
+                    <span className="text-xl font-bold text-indigo-100">Joueurs: {players.length}/4</span>
+                </div>
             </div>
 
             <div className="relative w-full max-w-6xl mb-12 z-10">
@@ -219,27 +232,6 @@ const EnigmeSelectionRoom = ({ playerName, score, onSelectEnigme }) => {
                     className="border-4 border-indigo-600/50 rounded-2xl shadow-2xl bg-gray-900/50 mx-auto block cursor-crosshair"
                     onClick={handleCanvasClick}
                 />
-
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
-                    {enigmes.map((enigme) => (
-                        <div
-                            key={enigme.id}
-                            className={`${enigme.bgColor} backdrop-blur-md p-4 rounded-xl border-2 ${enigme.color} shadow-lg hover:shadow-${enigme.color.replace("border-", "")}/30 transition-all`}
-                        >
-                            <div className="flex items-center gap-3 mb-3">
-                                {React.cloneElement(enigme.icon, { className: "w-6 h-6" })}
-                                <h3 className="text-lg font-bold text-white">{enigme.title}</h3>
-                            </div>
-                            <p className="text-indigo-200 text-sm">
-                                {enigme.id === 1 && "Reconstituez une œuvre d'art fragmentée."}
-                                {enigme.id === 2 && "Trouvez le bon motif de lumière pour avancer."}
-                                {enigme.id === 3 && "Reconnaissez le son mystérieux du musée."}
-                                {enigme.id === 4 && "Remettez les événements dans l'ordre chronologique."}
-                                {enigme.id === 5 && "Poeme"}
-                            </p>
-                        </div>
-                    ))}
-                </div>
             </div>
         </div>
     );

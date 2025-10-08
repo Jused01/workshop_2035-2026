@@ -26,52 +26,52 @@ def now_utc():
 INIT_SQL = [
     """
     CREATE TABLE IF NOT EXISTS games (
-      id VARCHAR(36) PRIMARY KEY,
-      code VARCHAR(16) UNIQUE,
-      status VARCHAR(16) NOT NULL,
-      created_at DATETIME NOT NULL,
-      started_at DATETIME NULL,
-      ends_at DATETIME NULL,
-      current_room_index INT NOT NULL DEFAULT 0,
-      hints_left INT NOT NULL DEFAULT 3,
-      seed INT NOT NULL
-    ) ENGINE=InnoDB;
+                                         id VARCHAR(36) PRIMARY KEY,
+        code VARCHAR(16) UNIQUE,
+        status VARCHAR(16) NOT NULL,
+        created_at DATETIME NOT NULL,
+        started_at DATETIME NULL,
+        ends_at DATETIME NULL,
+        current_room_index INT NOT NULL DEFAULT 0,
+        hints_left INT NOT NULL DEFAULT 3,
+        seed INT NOT NULL
+        ) ENGINE=InnoDB;
     """,
     """
     CREATE TABLE IF NOT EXISTS players (
-      id VARCHAR(36) PRIMARY KEY,
-      game_id VARCHAR(36) NOT NULL,
-      nickname VARCHAR(100) NOT NULL,
-      role VARCHAR(32) NOT NULL,
-      joined_at DATETIME NOT NULL,
-      is_connected TINYINT(1) NOT NULL DEFAULT 1,
-      score_total INT NOT NULL DEFAULT 0,
-      FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
-    ) ENGINE=InnoDB;
+                                           id VARCHAR(36) PRIMARY KEY,
+        game_id VARCHAR(36) NOT NULL,
+        nickname VARCHAR(100) NOT NULL,
+        role VARCHAR(32) NOT NULL,
+        joined_at DATETIME NOT NULL,
+        is_connected TINYINT(1) NOT NULL DEFAULT 1,
+        score_total INT NOT NULL DEFAULT 0,
+        FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB;
     """,
     """
     CREATE TABLE IF NOT EXISTS runtime_state (
-      game_id VARCHAR(36) PRIMARY KEY,
-      room_slug VARCHAR(64) NOT NULL,
-      attempts INT NOT NULL DEFAULT 0,
-      solved TINYINT(1) NOT NULL DEFAULT 0,
-      puzzle_state JSON NULL,
-      FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
-    ) ENGINE=InnoDB;
+                                                 game_id VARCHAR(36) PRIMARY KEY,
+        room_slug VARCHAR(64) NOT NULL,
+        attempts INT NOT NULL DEFAULT 0,
+        solved TINYINT(1) NOT NULL DEFAULT 0,
+        puzzle_state JSON NULL,
+        FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB;
     """,
     """
     CREATE TABLE IF NOT EXISTS player_enigme (
-      player_id VARCHAR(36) NOT NULL,
-      game_id VARCHAR(36) NOT NULL,
-      slug VARCHAR(64) NOT NULL,
-      attempts INT NOT NULL DEFAULT 0,
-      solved TINYINT(1) NOT NULL DEFAULT 0,
-      score_obtenu INT NOT NULL DEFAULT 0,
-      updated_at DATETIME NOT NULL,
-      PRIMARY KEY (player_id, slug),
-      FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE,
-      FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
-    ) ENGINE=InnoDB;
+                                                 player_id VARCHAR(36) NOT NULL,
+        game_id VARCHAR(36) NOT NULL,
+        slug VARCHAR(64) NOT NULL,
+        attempts INT NOT NULL DEFAULT 0,
+        solved TINYINT(1) NOT NULL DEFAULT 0,
+        score_obtenu INT NOT NULL DEFAULT 0,
+        updated_at DATETIME NOT NULL,
+        PRIMARY KEY (player_id, slug),
+        FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE,
+        FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB;
     """,
 ]
 
@@ -80,6 +80,46 @@ def ensure_schema():
         execute(sql)
 
 ensure_schema()
+# app.py
+
+# ---------- Endpoint pour l'énigme 5 Poétique ----------
+@app.get("/api/games/poetique-nantes-5")
+def get_poem():
+    claims = read_token_from_header()
+    if not claims:
+        return jsonify({"error": "Unauthorized", "message": "Token manquant ou invalide"}), 401
+
+    try:
+        # Récupération d'un poème aléatoire depuis la table Enigme5_Poetique
+        enigme = query_one(
+            "SELECT e.titre, p.texte_poeme, p.solution "
+            "FROM Enigme5_Poetique p "
+            "JOIN Enigme e ON p.id_poetique = e.id_enigme "
+            "WHERE e.type_enigme = 'poetique' "
+            "ORDER BY RAND() "
+            "LIMIT 1"
+        )
+
+        if not enigme:
+            # Retourner un poème de fallback si aucun n'est trouvé
+            return jsonify({
+                "text": "Dans les ombres du temps passé,\nUn musée se tient oublié.\nCherchez la clé de son mystère,\nDans les vers de cette prière.",
+                "answer": "musée oublié"
+            })
+
+        return jsonify({
+            "text": enigme["texte_poeme"],
+            "answer": enigme["solution"]
+        })
+
+    except Exception as e:
+        print(f"Erreur lors de la récupération du poème: {e}")
+        return jsonify({
+            "error": "Database error",
+            "message": "Impossible de récupérer le poème"
+        }), 500
+
+
 
 # ---------- REST ----------
 @app.post("/api/games")
@@ -152,7 +192,6 @@ def get_game(gid):
         return ("", 404)
     s = query_one("SELECT game_id, room_slug, attempts, solved, puzzle_state FROM runtime_state WHERE game_id=%s", (gid,))
     return jsonify({"game": g, "state": s})
-
 # ---------- Validation des 5 énigmes Nantes ----------
 EXPECTED = {
     "puzzle-nantes-1": ["reconstruit", "ok"],
@@ -213,6 +252,16 @@ def on_connect():
 @socketio.on("room:join")
 def on_room_join(data):
     claims = read_token_from_header()
+    if not claims:
+        # try token from event payload
+        try:
+            import jwt
+            from services.auth import JWT_SECRET
+            token = (data or {}).get("token")
+            if token:
+                claims = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        except Exception:
+            claims = None
     if not claims:
         emit("system:error", {"msg": "unauthorized"}); return
     gid = claims["gid"]

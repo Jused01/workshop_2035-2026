@@ -12,21 +12,29 @@ const getAuthToken = () => {
 const apiRequest = async (endpoint, options = {}) => {
     const token = getAuthToken();
     const url = `${API_BASE_URL}${endpoint}`;
-    
+
     const config = {
         headers: {
             'Content-Type': 'application/json',
-            ...(token && { 'Authorization': `Bearer ${token}` }),
             ...options.headers,
         },
         ...options,
     };
 
+    // Ajouter le token seulement s'il existe
+    if (token) {
+        config.headers['Authorization'] = `Bearer ${token}`;
+    }
+
     try {
         const response = await fetch(url, config);
+
+        // Gérer les erreurs HTTP
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            const errorText = await response.text();
+            throw new Error(`HTTP ${response.status}: ${errorText || response.statusText}`);
         }
+
         return await response.json();
     } catch (error) {
         console.error('API request failed:', error);
@@ -34,25 +42,32 @@ const apiRequest = async (endpoint, options = {}) => {
     }
 };
 
-// Game API functions
+// ---------- Game API functions ----------
+
 export const createGame = async (nickname = "Agent", role = "curator") => {
-    return await apiRequest('/api/games', {
+    const res = await apiRequest('/api/games', {
         method: 'POST',
         body: JSON.stringify({ nickname, role }),
     });
+    if (res.playerToken) {
+        localStorage.setItem('playerToken', res.playerToken);
+    }
+    return res;
 };
 
 export const joinGame = async (code, nickname = "Agent", role = "analyst") => {
-    return await apiRequest('/api/games/join', {
+    const res = await apiRequest('/api/games/join', {
         method: 'POST',
         body: JSON.stringify({ code, nickname, role }),
     });
+    if (res.playerToken) {
+        localStorage.setItem('playerToken', res.playerToken);
+    }
+    return res;
 };
 
 export const startGame = async () => {
-    return await apiRequest('/api/games/start', {
-        method: 'POST',
-    });
+    return await apiRequest('/api/games/start', { method: 'POST' });
 };
 
 export const getGame = async (gameId) => {
@@ -66,7 +81,20 @@ export const validatePuzzle = async (slug, attempt) => {
     });
 };
 
-// Mock data for enigmes (keeping for now as fallback)
+// ---------- Enigme 5 Poétique ----------
+
+// Fonction spécifique pour l'énigme 5
+export const getEnigme5Poetique = async () => {
+    try {
+        const data = await apiRequest("/api/games/poetique-nantes-5");
+        return data;
+    } catch (error) {
+        console.error("Erreur lors de la récupération du poème:", error);
+        throw error;
+    }
+};
+
+// Mock data pour les énigmes 1 à 4 (fallback)
 const mockEnigmes = {
     enigme1: {
         images: [
@@ -96,14 +124,13 @@ const mockEnigmes = {
             { id: 5, text: "Événement 5", year: 2007 },
         ],
     },
-    enigme5: {
-        text: "Dans les ombres de Nantes,\nUn trésor caché attend.\nTrouve la clé poétique,\nPour révéler son secret.",
-        answer: "mémoire",
-    },
 };
 
-// Fallback functions for enigme data
+// Fallback safe pour les énigmes 1 à 4
 export const getEnigmeDoc = async (id) => {
+    if (id === "enigme5") {
+        return await getEnigme5Poetique();
+    }
     return mockEnigmes[id];
 };
 
