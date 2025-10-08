@@ -1,6 +1,6 @@
 // src/components/Enigmes/Enigme1Puzzle.jsx
 import React, { useEffect, useState } from "react";
-import { getEnigmeDoc, getDownloadUrls } from "../../services/api";
+import { getEnigmeDoc, getDownloadUrls, buildProxiedUrl } from "../../services/api";
 import { validatePuzzle } from "../../services/api";
 
 export default function Enigme1Puzzle({ onComplete }) {
@@ -38,7 +38,10 @@ export default function Enigme1Puzzle({ onComplete }) {
             }
             if (!mounted) return;
             setImageUrls(urls);
-            if (urls.length > 0) preparePuzzle(urls[0]);
+            if (urls.length > 0) {
+                const img0 = buildProxiedUrl(urls[0]) || urls[0];
+                preparePuzzle(img0);
+            }
             setLoading(false);
         };
         load();
@@ -122,23 +125,26 @@ export default function Enigme1Puzzle({ onComplete }) {
                     const bgPosX = -(col * tileSize);
                     const bgPosY = -(row * tileSize);
 
+                    const currentIdx = tiles.findIndex((t) => t.pos === pos);
+                    const isSelected = selected === currentIdx;
+
                     return (
                         <div
                             key={pos}
-                            onClick={() => handleClick(tiles.findIndex((t) => t.pos === pos))}
-                            className={`${
-                                selected === tiles.findIndex((t) => t.pos === pos)
-                                    ? "ring-4 ring-amber-400 scale-105"
-                                    : ""
-                            } cursor-pointer rounded-md`}
+                            onClick={() => handleClick(currentIdx)}
                             style={{
-                                width: tileSize,
+                                width: tileSize, 
                                 height: tileSize,
                                 backgroundImage: `url(${imgUrl})`,
                                 backgroundSize: `${tileSize * gridSize}px ${tileSize * gridSize}px`,
                                 backgroundPosition: `${bgPosX}px ${bgPosY}px`,
                                 backgroundRepeat: "no-repeat",
-                                transition: "transform 120ms ease" 
+                                cursor: "pointer",
+                                border: isSelected ? "3px solid #f59e0b" : "2px solid transparent",
+                                boxShadow: isSelected ? "0 0 0 3px rgba(245,158,11,0.35)" : "none",
+                                borderRadius: 8,
+                                transition: "transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease",
+                                transform: isSelected ? "scale(1.04)" : "scale(1)",
                             }}
                         />
                     );

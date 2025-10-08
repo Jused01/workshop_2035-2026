@@ -1,8 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import HomeMenu from "./components/HomeMenu";
 import WaitingRoom from "./components/WaitingRoom";
 import EnigmeSelectionRoom from "./components/EnigmeSelectionRoom";
-import GameRoom from "./components/GameRoom";
+import GameRoom, { GameRoomReturnFloating } from "./components/GameRoom";
 import { createGame, joinGame, startGame, getGame } from "./services/api";
 
 export default function App() {
@@ -36,6 +36,24 @@ export default function App() {
             setLoading(false);
         }
     };
+
+    // Restore last screen/enigme from session on first mount
+    useEffect(() => {
+        try {
+            const savedScreen = sessionStorage.getItem("app:screen");
+            const savedEnigme = sessionStorage.getItem("app:selectedEnigme");
+            if (savedScreen) setScreen(savedScreen);
+            if (savedEnigme) setSelectedEnigme(parseInt(savedEnigme, 10) || 1);
+        } catch (_) {}
+    }, []);
+
+    // Persist screen/enigme changes
+    useEffect(() => {
+        try { sessionStorage.setItem("app:screen", screen); } catch (_) {}
+    }, [screen]);
+    useEffect(() => {
+        try { sessionStorage.setItem("app:selectedEnigme", String(selectedEnigme)); } catch (_) {}
+    }, [selectedEnigme]);
 
     const handleJoinGame = async (code, name) => {
         setLoading(true);
@@ -87,6 +105,37 @@ export default function App() {
         }
     };
 
+    const handleReturnToSelection = () => {
+        try { console.log("[App] Return to selection triggered"); } catch (_) {}
+        setScreen("selection");
+    };
+
+    useEffect(() => {
+        const onKey = (e) => {
+            if (e.key === "Escape") {
+                setScreen("selection");
+            }
+        };
+        const onAppReturn = () => setScreen("selection");
+        window.addEventListener("keydown", onKey);
+        window.addEventListener("app:return", onAppReturn);
+        return () => {
+            window.removeEventListener("keydown", onKey);
+            window.removeEventListener("app:return", onAppReturn);
+        };
+    }, []);
+
+    useEffect(() => {
+        // Expose helpers for quick debugging
+        try {
+            window.__getScreen = () => screen;
+            window.__setScreen = (s) => setScreen(s);
+            // Aliases without underscores for convenience
+            window.getScreen = () => screen;
+            window.setScreen = (s) => setScreen(s);
+        } catch (_) {}
+    }, [screen]);
+
     if (screen === "home") return <HomeMenu onEnterManor={handleEnterManor} loading={loading} error={error} />;
     if (screen === "waiting")
         return (
@@ -110,14 +159,18 @@ export default function App() {
         );
     if (screen === "game")
         return (
-            <GameRoom
-                gameId={gameId}
-                roomCode={roomCode}
-                playerName={playerName}
-                players={players}
-                currentEnigme={selectedEnigme}
-                score={score}
-                onComplete={handleEnigmeComplete}
-            />
+            <>
+                <GameRoom
+                    gameId={gameId}
+                    roomCode={roomCode}
+                    playerName={playerName}
+                    players={players}
+                    currentEnigme={selectedEnigme}
+                    score={score}
+                    onComplete={handleEnigmeComplete}
+                    onReturn={handleReturnToSelection}
+                />
+                <GameRoomReturnFloating onReturn={handleReturnToSelection} />
+            </>
         );
 }

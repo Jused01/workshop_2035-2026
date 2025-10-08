@@ -4,7 +4,7 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 
 @dataclass
-class Player:
+class Joueur:
     id: str
     nickname: str
     role: str
