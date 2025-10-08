@@ -280,6 +280,7 @@ def get_enigme3():
         ("SELECT url_audio, options_json, correct FROM Enigme3_Son ORDER BY id DESC LIMIT 1", ["url_audio", "options_json", "correct"]),
         ("SELECT sound_url, options_json, correct FROM Enigme3_Son ORDER BY id DESC LIMIT 1", ["sound_url", "options_json", "correct"]),
         ("SELECT url_son, options_json, correct FROM Enigme3_Son ORDER BY id DESC LIMIT 1", ["url_son", "options_json", "correct"]),
+        ("SELECT url_son, bonne_reponse FROM Enigme3_Son ORDER BY id_son DESC LIMIT 1", ["url_son", "bonne_reponse"]),
         ("SELECT url_audio, option1, option2, option3, correct FROM Enigme3_Son ORDER BY id DESC LIMIT 1", ["url_audio", "option1", "option2", "option3", "correct"]),
         ("SELECT sound_url, option1, option2, option3, correct FROM Enigme3_Son ORDER BY id DESC LIMIT 1", ["sound_url", "option1", "option2", "option3", "correct"]),
         ("SELECT audio, options_json, answer as correct FROM Enigme3 ORDER BY id DESC LIMIT 1", ["audio", "options_json", "correct"]),
@@ -329,12 +330,26 @@ def get_enigme3():
             if "correct" in keys:
                 c = g("correct")
                 correct = str(c) if c is not None else None
+            elif "bonne_reponse" in keys:
+                c = g("bonne_reponse")
+                correct = str(c) if c is not None else None
 
             resp = {
                 "sounds": [sound_url] if sound_url else [],
                 "options": options,
                 "correct": correct,
             }
+            # If no options provided from DB but we have a correct answer, synthesize simple options
+            if (not resp["options"]) and resp["correct"]:
+                base_opts = [resp["correct"], "éléphant", "machine"]
+                # de-duplicate and keep strings
+                opts_unique = []
+                for o in base_opts:
+                    s = str(o)
+                    if s not in opts_unique:
+                        opts_unique.append(s)
+                random.shuffle(opts_unique)
+                resp["options"] = opts_unique
             # Return as soon as we have at least sound or options/correct
             if resp["sounds"] or resp["options"] or resp["correct"]:
                 return jsonify(resp)

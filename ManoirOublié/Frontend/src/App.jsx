@@ -17,6 +17,7 @@ export default function App() {
     const [gameData, setGameData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
+
     const handleEnterManor = async (name) => {
         setLoading(true);
         setError("");
@@ -26,11 +27,17 @@ export default function App() {
             setRoomCode(response.code);
             setGameId(response.gameId);
             setPlayerToken(response.playerToken);
-            localStorage.setItem('playerToken', response.playerToken);
+            // persist session so reload keeps context
+            try {
+                localStorage.setItem('playerToken', response.playerToken);
+                localStorage.setItem('gameId', response.gameId);
+                localStorage.setItem('roomCode', response.code);
+                localStorage.setItem('playerName', name);
+            } catch (_) {}
             setPlayers([{ name, ready: false }]);
             setScreen("waiting");
         } catch (err) {
-            setError("Erreur lors de la création de la partie: " + (err.message || err));
+            setError("Erreur lors de la création de la partie: " + err.message);
         } finally {
             setLoading(false);
         }
@@ -39,9 +46,23 @@ export default function App() {
     // Restore last screen/enigme from session on first mount
     useEffect(() => {
         try {
+            const token = localStorage.getItem('playerToken');
+            const gid = localStorage.getItem('gameId');
+            const code = localStorage.getItem('roomCode');
+            const name = localStorage.getItem('playerName');
+            if (token) setPlayerToken(token);
+            if (gid) setGameId(gid);
+            if (code) setRoomCode(code);
+            if (name) setPlayerName(name);
+
             const savedScreen = sessionStorage.getItem("app:screen");
             const savedEnigme = sessionStorage.getItem("app:selectedEnigme");
-            if (savedScreen) setScreen(savedScreen);
+            if (savedScreen) {
+                setScreen(savedScreen);
+            } else if (token) {
+                // If we already have a token but no saved screen, return to waiting room
+                setScreen("waiting");
+            }
             if (savedEnigme) setSelectedEnigme(parseInt(savedEnigme, 10) || 1);
         } catch (_) {}
     }, []);
@@ -63,18 +84,26 @@ export default function App() {
             setRoomCode(code);
             setGameId(response.gameId);
             setPlayerToken(response.playerToken);
-            localStorage.setItem('playerToken', response.playerToken);
-            setPlayers([{ name, ready: false }]);
+            // persist session so reload keeps context
+            try {
+                localStorage.setItem('playerToken', response.playerToken);
+                setPlayers([{ name, ready: false }]);
+                localStorage.setItem('gameId', response.gameId);
+                localStorage.setItem('roomCode', code);
+                localStorage.setItem('playerName', name);
+            } catch (_) {}
             setScreen("waiting");
         } catch (err) {
-            setError("Erreur lors de la connexion: " + (err.message || err));
+            setError("Erreur lors de la connexion à la partie: " + err.message);
         } finally {
             setLoading(false);
         }
     };
 
     const handleReady = (name, ready) => {
-        setPlayers(prev => prev.map(p => p.name === name ? {...p, ready} : p));
+        setPlayers((prev) =>
+            prev.map((p) => (p.name === name ? { ...p, ready } : p))
+        );
     };
 
     const handleStartGame = async () => {
@@ -83,7 +112,7 @@ export default function App() {
             await startGame(playerToken); // ✅ Passer le token si nécessaire
             setScreen("selection");
         } catch (err) {
-            setError("Erreur lors du démarrage: " + (err.message || err));
+            setError("Erreur lors du démarrage de la partie: " + err.message);
         } finally {
             setLoading(false);
         }
