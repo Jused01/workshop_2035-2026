@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react";
-import { Clock, Trophy, MessageSquare, ArrowLeft } from "lucide-react";
-import { useSocket } from "../services/Socket";
+import React, { useState, useEffect, useRef } from "react";
+import { Clock, Trophy, MessageSquare, ArrowLeft, Send, Wifi, WifiOff } from "lucide-react";
+import { useSocket } from "../services/useSocket";
 
 // Import des énigmes
 import Enigme1Puzzle from "./Enigmes/Enigme1Puzzle";
@@ -9,10 +9,11 @@ import Enigme3Son from "./Enigmes/Enigme3Son";
 import Enigme4Timeline from "./Enigmes/Enigme4Timeline";
 import Enigme5Poem from "./Enigmes/Enigme5Poem";
 
-export default function GameRoom({ gameId, roomCode, playerName, players, currentEnigme, score, onComplete, onReturn }) {
+export default function GameRoom({ gameId, roomCode, playerName, playerToken, players, currentEnigme, score, onComplete, onReturn }) {
     const { messages, sendMessage, isConnected } = useSocket(gameId);
     const [chatInput, setChatInput] = useState("");
     const [timeLeft, setTimeLeft] = useState(1800); // 30 minutes par défaut
+    const messagesEndRef = useRef(null);
 
     // Timer de la partie
     useEffect(() => {
@@ -22,6 +23,12 @@ export default function GameRoom({ gameId, roomCode, playerName, players, curren
         return () => clearInterval(timer);
     }, []);
 
+    // Auto-scroll du chat
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [messages]);
+
+    // Raccourci clavier pour retourner
     useEffect(() => {
         const onKey = (e) => {
             if (e.key === "Escape") {
@@ -38,9 +45,16 @@ export default function GameRoom({ gameId, roomCode, playerName, players, curren
 
     // Envoi du message chat
     const handleSendMessage = () => {
-        if (chatInput.trim()) {
-            sendMessage(chatInput);
+        if (chatInput.trim() && isConnected) {
+            sendMessage(chatInput.trim());
             setChatInput("");
+        }
+    };
+
+    const handleKeyPress = (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            handleSendMessage();
         }
     };
 
@@ -62,13 +76,26 @@ export default function GameRoom({ gameId, roomCode, playerName, players, curren
                             <span className="font-bold text-xl">Score : {score}</span>
                         </div>
                         <div className="bg-gray-700 px-4 py-2 rounded-lg font-mono">
-                            Énigme {currentEnigme}/4
+                            Énigme {currentEnigme}/5
                         </div>
                     </div>
-                    <div>
+                    <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2">
+                            {isConnected ? (
+                                <>
+                                    <Wifi className="w-4 h-4 text-green-400" />
+                                    <span className="text-xs text-green-400">En ligne</span>
+                                </>
+                            ) : (
+                                <>
+                                    <WifiOff className="w-4 h-4 text-red-400" />
+                                    <span className="text-xs text-red-400">Hors ligne</span>
+                                </>
+                            )}
+                        </div>
                         <button
                             onClick={() => onReturn && onReturn()}
-                            className="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-gray-200 px-3 py-2 rounded-lg border border-gray-600"
+                            className="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-gray-200 px-3 py-2 rounded-lg border border-gray-600 transition-colors"
                             title="Retour"
                         >
                             <ArrowLeft className="w-5 h-5" />
@@ -89,44 +116,101 @@ export default function GameRoom({ gameId, roomCode, playerName, players, curren
                     </div>
 
                     {/* Chat */}
-                    <div className="bg-gray-800/80 rounded-xl p-4 flex flex-col h-[600px] border border-gray-700">
-                        <h3 className="font-bold mb-3 flex items-center gap-2 text-lg">
-                            <MessageSquare className="w-6 h-6" /> Chat d’équipe
-                        </h3>
-                        <div className="flex-1 overflow-y-auto space-y-2 mb-3">
-                            {messages.map((msg, idx) => (
-                                <div key={idx} className="bg-gray-700/40 p-3 rounded text-sm">
-                                    <span className="font-semibold text-amber-400">
-                                        {msg.sender}
-                                    </span>
-                                    <p className="text-gray-300 mt-1">{msg.text}</p>
-                                </div>
-                            ))}
+                    <div className="bg-gray-800/80 rounded-xl p-4 flex flex-col border border-gray-700" style={{ height: '600px' }}>
+                        <div className="flex items-center justify-between mb-3 pb-3 border-b border-gray-700">
+                            <h3 className="font-bold flex items-center gap-2 text-lg">
+                                <MessageSquare className="w-6 h-6" />
+                                Chat d'équipe
+                            </h3>
+                            <div className="text-xs text-gray-400">
+                                {players.length} {players.length > 1 ? 'joueurs' : 'joueur'}
+                            </div>
                         </div>
+
+                        {/* Messages */}
+                        <div className="flex-1 overflow-y-auto space-y-2 mb-3 pr-2" style={{ scrollbarWidth: 'thin' }}>
+                            {messages.length === 0 ? (
+                                <div className="text-center text-gray-500 py-8">
+                                    <MessageSquare className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                                    <p className="text-sm">Aucun message pour le moment</p>
+                                    <p className="text-xs mt-1">Soyez le premier à parler !</p>
+                                </div>
+                            ) : (
+                                messages.map((msg) => (
+                                    <div
+                                        key={msg.id}
+                                        className={`p-3 rounded-lg ${
+                                            msg.system
+                                                ? 'bg-indigo-900/30 border border-indigo-700/50'
+                                                : msg.sender === playerName
+                                                    ? 'bg-amber-900/30 border border-amber-700/50'
+                                                    : 'bg-gray-700/40 border border-gray-600/50'
+                                        }`}
+                                    >
+                                        <div className="flex items-start justify-between gap-2 mb-1">
+                                            <span className={`font-semibold text-sm ${
+                                                msg.system
+                                                    ? 'text-indigo-300'
+                                                    : msg.sender === playerName
+                                                        ? 'text-amber-400'
+                                                        : 'text-gray-300'
+                                            }`}>
+                                                {msg.sender}
+                                                {msg.sender === playerName && (
+                                                    <span className="ml-1 text-xs opacity-70">(vous)</span>
+                                                )}
+                                            </span>
+                                            {msg.timestamp && (
+                                                <span className="text-xs text-gray-500">
+                                                    {new Date(msg.timestamp).toLocaleTimeString('fr-FR', {
+                                                        hour: '2-digit',
+                                                        minute: '2-digit'
+                                                    })}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <p className="text-gray-200 text-sm break-words">{msg.text}</p>
+                                    </div>
+                                ))
+                            )}
+                            <div ref={messagesEndRef} />
+                        </div>
+
+                        {/* Input */}
                         <div className="flex gap-2">
                             <input
                                 type="text"
                                 value={chatInput}
                                 onChange={(e) => setChatInput(e.target.value)}
-                                onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
-                                placeholder="Tapez un message..."
-                                className="flex-1 bg-gray-700 rounded px-3 py-2 text-sm text-gray-200"
+                                onKeyPress={handleKeyPress}
+                                placeholder={isConnected ? "Tapez un message..." : "Connexion..."}
+                                disabled={!isConnected}
+                                className="flex-1 bg-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-gray-400 border border-gray-600 focus:outline-none focus:border-amber-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                maxLength={500}
                             />
                             <button
                                 onClick={handleSendMessage}
-                                className="bg-amber-700 px-4 rounded font-bold"
+                                disabled={!chatInput.trim() || !isConnected}
+                                className="bg-amber-700 hover:bg-amber-600 px-4 rounded-lg font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                                title="Envoyer (Entrée)"
                             >
-                                ➤
+                                <Send className="w-4 h-4" />
                             </button>
                         </div>
+
+                        {!isConnected && (
+                            <div className="mt-2 text-xs text-orange-400 text-center">
+                                ⚠️ Reconnexion au serveur...
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
         </div>
     );
 }
-// Floating always-on-top return button to avoid overlay issues
-// Ensures navigation works even if header is overlapped
+
+// Bouton flottant de retour
 export function GameRoomReturnFloating({ onReturn }) {
     return (
         <button

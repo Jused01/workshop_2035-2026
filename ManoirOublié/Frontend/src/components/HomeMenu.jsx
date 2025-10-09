@@ -1,16 +1,18 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Trophy, DoorOpen, UserRound, BookOpen, Sparkles } from "lucide-react";
+import { Trophy, DoorOpen, UserRound, BookOpen, Sparkles, Users, Hash } from "lucide-react";
 
-const HomeMenu = ({ onEnterManor, loading, error }) => {
+const HomeMenu = ({ onEnterManor, onJoinGame, loading, error }) => {
     const [playerX, setPlayerX] = useState(50);
     const [playerY, setPlayerY] = useState(80);
     const [playerName, setPlayerName] = useState("");
+    const [joinCode, setJoinCode] = useState("");
     const [showNameInput, setShowNameInput] = useState(false);
+    const [showJoinInput, setShowJoinInput] = useState(false);
+    const [joinMode, setJoinMode] = useState("create"); // "create", "code", "random"
     const canvasRef = useRef(null);
     const rafRef = useRef(null);
     const [canvasSize, setCanvasSize] = useState({ width: 800, height: 500 });
 
-    // Lock page scroll while on this screen
     useEffect(() => {
         const prevOverflow = document.body.style.overflow;
         document.body.style.overflow = 'hidden';
@@ -20,10 +22,10 @@ const HomeMenu = ({ onEnterManor, loading, error }) => {
     useEffect(() => {
         const computeSize = () => {
             const containerMaxWidth = Math.min(1100, window.innerWidth - 24);
-            const targetAspect = 16 / 9; // standard game aspect
+            const targetAspect = 16 / 9;
             let width = containerMaxWidth;
             let height = Math.round(width / targetAspect);
-            const reserved = 280; // space for header + cards approx.
+            const reserved = 280;
             const maxHeight = Math.max(220, window.innerHeight - reserved);
             if (height > maxHeight) {
                 height = maxHeight;
@@ -169,7 +171,9 @@ const HomeMenu = ({ onEnterManor, loading, error }) => {
             case "ArrowLeft": setPlayerX((p) => Math.max(10, p - speed)); break;
             case "ArrowRight": setPlayerX((p) => Math.min(100, p + speed)); break;
             case "Enter":
-                if (playerX > 40 && playerX < 60 && playerY > 70) setShowNameInput(true);
+                if (playerX > 40 && playerX < 60 && playerY > 70) {
+                    setShowNameInput(true);
+                }
                 break;
             default: break;
         }
@@ -181,7 +185,20 @@ const HomeMenu = ({ onEnterManor, loading, error }) => {
     }, [playerX, playerY]);
 
     const handleStartGame = () => {
-        if (playerName.trim()) onEnterManor(playerName.trim());
+        if (!playerName.trim()) return;
+
+        if (joinMode === "create") {
+            onEnterManor(playerName.trim());
+        } else if (joinMode === "code") {
+            if (!joinCode.trim()) {
+                alert("Veuillez entrer un code de partie");
+                return;
+            }
+            onJoinGame(joinCode.trim().toUpperCase(), playerName.trim());
+        } else if (joinMode === "random") {
+            // Appel API pour rejoindre partie aléatoire
+            onJoinGame("RANDOM", playerName.trim());
+        }
     };
 
     return (
@@ -214,7 +231,10 @@ const HomeMenu = ({ onEnterManor, loading, error }) => {
                             <BookOpen className="icon" />
                             <h3 className="card-title">L'Histoire</h3>
                         </div>
-                        <p className="card-text">Le Musée Oublié de Nantes renferme des œuvres perdues depuis des décennies. Cinq énigmes protègent son secret ultime.</p>
+                        <p className="card-text">
+                            Le Musée Oublié de Nantes renferme des œuvres perdues depuis des décennies.
+                            Cinq énigmes protègent son secret ultime.
+                        </p>
                     </div>
 
                     <div className="card">
@@ -234,7 +254,9 @@ const HomeMenu = ({ onEnterManor, loading, error }) => {
                             <Trophy className="icon" />
                             <h3 className="card-title">Objectif</h3>
                         </div>
-                        <p className="card-text">Résolvez les 5 énigmes pour découvrir la vérité cachée du musée.</p>
+                        <p className="card-text">
+                            Résolvez les 5 énigmes pour découvrir la vérité cachée du musée.
+                        </p>
                     </div>
                 </div>
             </div>
@@ -246,15 +268,127 @@ const HomeMenu = ({ onEnterManor, loading, error }) => {
                             <UserRound className="icon" />
                             <div>
                                 <h2 className="modal-title">Bienvenue, Aventurier</h2>
-                                <p className="modal-subtitle">Quel est votre nom ?</p>
+                                <p className="modal-subtitle">Comment souhaitez-vous jouer ?</p>
                             </div>
                         </div>
-                        <input type="text" value={playerName} onChange={(e) => setPlayerName(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleStartGame()} placeholder="Ex: Indiana Jones" className="text-input" autoFocus />
+
+                        {/* Mode de jeu */}
+                        <div style={{ marginBottom: '16px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
+                                <button
+                                    onClick={() => setJoinMode("create")}
+                                    className={`mode-btn ${joinMode === "create" ? "active" : ""}`}
+                                    style={{
+                                        padding: '12px',
+                                        borderRadius: '8px',
+                                        border: joinMode === "create" ? '2px solid #4f46e5' : '2px solid transparent',
+                                        background: joinMode === "create" ? 'rgba(79, 70, 229, 0.2)' : 'rgba(55, 65, 81, 0.4)',
+                                        color: '#e0e7ff',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        gap: '4px'
+                                    }}
+                                >
+                                    <DoorOpen size={20} />
+                                    <span style={{ fontSize: '13px' }}>Créer</span>
+                                </button>
+
+                                <button
+                                    onClick={() => setJoinMode("code")}
+                                    className={`mode-btn ${joinMode === "code" ? "active" : ""}`}
+                                    style={{
+                                        padding: '12px',
+                                        borderRadius: '8px',
+                                        border: joinMode === "code" ? '2px solid #4f46e5' : '2px solid transparent',
+                                        background: joinMode === "code" ? 'rgba(79, 70, 229, 0.2)' : 'rgba(55, 65, 81, 0.4)',
+                                        color: '#e0e7ff',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        gap: '4px'
+                                    }}
+                                >
+                                    <Hash size={20} />
+                                    <span style={{ fontSize: '13px' }}>Code</span>
+                                </button>
+
+                                <button
+                                    onClick={() => setJoinMode("random")}
+                                    className={`mode-btn ${joinMode === "random" ? "active" : ""}`}
+                                    style={{
+                                        padding: '12px',
+                                        borderRadius: '8px',
+                                        border: joinMode === "random" ? '2px solid #4f46e5' : '2px solid transparent',
+                                        background: joinMode === "random" ? 'rgba(79, 70, 229, 0.2)' : 'rgba(55, 65, 81, 0.4)',
+                                        color: '#e0e7ff',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        gap: '4px'
+                                    }}
+                                >
+                                    <Users size={20} />
+                                    <span style={{ fontSize: '13px' }}>Aléatoire</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <input
+                            type="text"
+                            value={playerName}
+                            onChange={(e) => setPlayerName(e.target.value)}
+                            onKeyPress={(e) => e.key === 'Enter' && handleStartGame()}
+                            placeholder="Votre nom"
+                            className="text-input"
+                            autoFocus
+                        />
+
+                        {joinMode === "code" && (
+                            <input
+                                type="text"
+                                value={joinCode}
+                                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                                onKeyPress={(e) => e.key === 'Enter' && handleStartGame()}
+                                placeholder="Code de la partie (ex: ABC123)"
+                                className="text-input"
+                                maxLength={6}
+                                style={{ textTransform: 'uppercase' }}
+                            />
+                        )}
+
                         <button onClick={handleStartGame} disabled={loading} className="primary-btn">
-                            <DoorOpen className="icon" />
-                            {loading ? "Création de la partie..." : "Entrer dans le Musée"}
+                            {joinMode === "create" && <DoorOpen className="icon" />}
+                            {joinMode === "code" && <Hash className="icon" />}
+                            {joinMode === "random" && <Users className="icon" />}
+                            {loading ? "Connexion..." :
+                                joinMode === "create" ? "Créer une partie" :
+                                    joinMode === "code" ? "Rejoindre avec le code" :
+                                        "Rejoindre une partie"}
                         </button>
+
                         {error && <div className="error-box">{error}</div>}
+
+                        <button
+                            onClick={() => {
+                                setShowNameInput(false);
+                                setPlayerName("");
+                                setJoinCode("");
+                            }}
+                            style={{
+                                marginTop: '8px',
+                                background: 'transparent',
+                                border: 'none',
+                                color: '#9ca3af',
+                                cursor: 'pointer',
+                                fontSize: '14px'
+                            }}
+                        >
+                            Annuler
+                        </button>
                     </div>
                 </div>
             )}

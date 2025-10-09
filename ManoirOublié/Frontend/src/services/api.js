@@ -57,6 +57,18 @@ export const createGame = async (nickname = "Agent", role = "curator") => {
 };
 
 export const joinGame = async (code, nickname = "Agent", role = "analyst") => {
+    // Si code = "RANDOM", rejoindre une partie aléatoire
+    if (code === "RANDOM") {
+        const res = await apiRequest('/api/games/join-random', {
+            method: 'POST',
+            body: JSON.stringify({ nickname, role }),
+        });
+        if (res.playerToken) {
+            localStorage.setItem('playerToken', res.playerToken);
+        }
+        return res;
+    }
+
     const res = await apiRequest('/api/games/join', {
         method: 'POST',
         body: JSON.stringify({ code, nickname, role }),
