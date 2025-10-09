@@ -7,7 +7,7 @@ import requests
 from flask_cors import CORS
 from flask_socketio import SocketIO, join_room, emit, leave_room
 
-from services.db import query_one, query_all, execute
+from services.db import query_one, query_all, execute, get_conn
 from services.auth import issue_token, read_token_from_header
 
 load_dotenv()
@@ -15,6 +15,34 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": os.getenv("CORS_ORIGINS", "*").split(",")}})
 socketio = SocketIO(app, cors_allowed_origins=os.getenv("CORS_ORIGINS", "*").split(","), async_mode="threading")
+
+# ---------- Initialisation de la base de données ----------
+def init_database():
+    """Initialise les tables nécessaires"""
+    try:
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                # Créer la table game_enigmes_completed si elle n'existe pas
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS game_enigmes_completed (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        game_id VARCHAR(255) NOT NULL,
+                        enigme_id INT NOT NULL,
+                        completed_by VARCHAR(255) NOT NULL,
+                        completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        UNIQUE KEY unique_game_enigme (game_id, enigme_id),
+                        INDEX idx_game_id (game_id),
+                        INDEX idx_enigme_id (enigme_id),
+                        INDEX idx_completed_at (completed_at)
+                    ) COMMENT = 'Table pour tracker les énigmes complétées globalement par partie'
+                """)
+                conn.commit()
+                print("✅ Table game_enigmes_completed initialisée")
+    except Exception as e:
+        print(f"❌ Erreur lors de l'initialisation de la base de données: {e}")
+
+# Initialiser la base de données au démarrage
+init_database()
 
 # ---------- Helpers ----------
 def gen_code(n=6):
@@ -457,20 +485,75 @@ def validate_slug(slug):
     )
 
     if ok:
-        g = query_one("SELECT current_room_index FROM games WHERE id=%s", (gid,)) or {"current_room_index": 0}
-        next_idx = int(g.get("current_room_index", 0)) + 1
-        execute("UPDATE games SET current_room_index=%s WHERE id=%s", (next_idx, gid))
-        execute("UPDATE players SET score_total = score_total + %s WHERE id=%s", (PUZZLE_POINTS, pid))
-
-        # Notifier tous les joueurs de la réussite
-        player = query_one("SELECT nickname FROM players WHERE id=%s", (pid,))
-        socketio.emit("puzzle:solved", {
-            "player": player["nickname"] if player else "Un joueur",
-            "slug": slug,
-            "points": PUZZLE_POINTS
-        }, room=gid)
+        # Mapper le slug vers l'ID de l'énigme
+        enigme_mapping = {
+            "puzzle-nantes-1": 1,
+            "lumiere-nantes-2": 2,
+            "son-elephant-3": 3,
+            "timeline-nantes-4": 4,
+            "poetique-nantes-5": 5
+        }
+        enigme_id = enigme_mapping.get(slug, 0)
+        
+        # Vérifier si cette énigme n'a pas déjà été complétée globalement
+        global_completed = query_one("SELECT id FROM game_enigmes_completed WHERE game_id=%s AND enigme_id=%s", (gid, enigme_id))
+        
+        if not global_completed:
+            # Marquer l'énigme comme complétée globalement
+            execute("INSERT INTO game_enigmes_completed (game_id, enigme_id, completed_by, completed_at) VALUES (%s,%s,%s,%s)", 
+                   (gid, enigme_id, pid, now_utc()))
+            
+            # Mettre à jour le score du joueur
+            execute("UPDATE players SET score_total = score_total + %s WHERE id=%s", (PUZZLE_POINTS, pid))
+            
+            # Notifier tous les joueurs de la réussite
+            player = query_one("SELECT nickname FROM players WHERE id=%s", (pid,))
+            
+            # Récupérer toutes les énigmes complétées pour cette partie
+            completed_enigmes = query_all("SELECT enigme_id FROM game_enigmes_completed WHERE game_id=%s", (gid,))
+            completed_ids = [row["enigme_id"] for row in completed_enigmes]
+            
+            socketio.emit("puzzle:solved", {
+                "player": player["nickname"] if player else "Un joueur",
+                "slug": slug,
+                "enigmeId": enigme_id,
+                "points": PUZZLE_POINTS,
+                "globalCompletedEnigmes": completed_ids
+            }, room=gid)
+            
+            # Vérifier si toutes les énigmes sont complétées
+            if len(completed_ids) >= 5:
+                socketio.emit("game:completed", {
+                    "message": "Toutes les énigmes ont été résolues !",
+                    "completedEnigmes": completed_ids
+                }, room=gid)
+        else:
+            # L'énigme a déjà été complétée par quelqu'un d'autre
+            return jsonify({"ok": False, "message": "Cette énigme a déjà été résolue par un autre joueur"})
 
     return jsonify({"ok": ok})
+
+@app.get("/api/game/<game_id>/enigmes-completed")
+def get_completed_enigmes(game_id):
+    """Récupérer les énigmes complétées pour une partie"""
+    claims = read_token_from_header()
+    if not claims:
+        return ("", 401)
+    
+    gid = claims["gid"]
+    if gid != game_id:
+        return ("", 403)
+    
+    try:
+        completed_enigmes = query_all("SELECT enigme_id, completed_by, completed_at FROM game_enigmes_completed WHERE game_id=%s ORDER BY completed_at", (gid,))
+        completed_ids = [row["enigme_id"] for row in completed_enigmes]
+        
+        return jsonify({
+            "completedEnigmes": completed_ids,
+            "details": completed_enigmes
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 # ---------- SOCKET.IO ----------
 @socketio.on("connect")
@@ -502,7 +585,19 @@ def on_room_join(data):
 
         # Récupérer et envoyer la liste des joueurs
         players = get_game_players(gid)
-        emit("room:joined", {"gid": gid, "players": players})
+        
+        # Récupérer les énigmes complétées globalement
+        completed_enigmes = query_all("SELECT enigme_id FROM game_enigmes_completed WHERE game_id=%s", (gid,))
+        completed_ids = [row["enigme_id"] for row in completed_enigmes]
+        
+        emit("room:joined", {
+            "gid": gid, 
+            "players": players,
+            "gameState": {
+                "completedEnigmes": completed_ids,
+                "gamePhase": "completed" if len(completed_ids) >= 5 else "playing"
+            }
+        })
 
         # Notifier les autres joueurs
         player = query_one("SELECT nickname FROM players WHERE id=%s", (pid,))
@@ -568,6 +663,104 @@ def on_puzzle_state(data):
 
     except Exception as e:
         print(f"❌ Error in puzzle:state: {e}")
+
+@socketio.on("game:state:update")
+def on_game_state_update(data):
+    """Synchroniser l'état global du jeu entre joueurs"""
+    try:
+        import jwt
+        from services.auth import JWT_SECRET
+
+        token = (data or {}).get("token")
+        if not token:
+            return
+
+        claims = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        gid = claims["gid"]
+
+        socketio.emit("game:state:update", data, room=gid, include_self=False)
+
+    except Exception as e:
+        print(f"❌ Error in game:state:update: {e}")
+
+@socketio.on("player:enigme:select")
+def on_player_enigme_select(data):
+    """Notifier la sélection d'énigme d'un joueur"""
+    try:
+        import jwt
+        from services.auth import JWT_SECRET
+
+        token = (data or {}).get("token")
+        if not token:
+            return
+
+        claims = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        gid = claims["gid"]
+        pid = claims["pid"]
+
+        player = query_one("SELECT nickname FROM players WHERE id=%s", (pid,))
+        player_name = player["nickname"] if player else "Un joueur"
+
+        socketio.emit("player:enigme:select", {
+            "enigmeId": data.get("enigmeId"),
+            "playerName": player_name
+        }, room=gid, include_self=False)
+
+    except Exception as e:
+        print(f"❌ Error in player:enigme:select: {e}")
+
+@socketio.on("player:position:update")
+def on_player_position_update(data):
+    """Synchroniser la position des joueurs dans la salle de sélection"""
+    try:
+        import jwt
+        from services.auth import JWT_SECRET
+
+        token = (data or {}).get("token")
+        if not token:
+            return
+
+        claims = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        gid = claims["gid"]
+        pid = claims["pid"]
+
+        player = query_one("SELECT nickname FROM players WHERE id=%s", (pid,))
+        player_name = player["nickname"] if player else "Un joueur"
+
+        socketio.emit("player:position:update", {
+            "x": data.get("x"),
+            "y": data.get("y"),
+            "playerName": player_name
+        }, room=gid, include_self=False)
+
+    except Exception as e:
+        print(f"❌ Error in player:position:update: {e}")
+
+@socketio.on("game:state:request")
+def on_game_state_request(data):
+    """Demander l'état actuel du jeu"""
+    try:
+        import jwt
+        from services.auth import JWT_SECRET
+
+        token = (data or {}).get("token")
+        if not token:
+            return
+
+        claims = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        gid = claims["gid"]
+        
+        # Récupérer les énigmes complétées globalement
+        completed_enigmes = query_all("SELECT enigme_id FROM game_enigmes_completed WHERE game_id=%s", (gid,))
+        completed_ids = [row["enigme_id"] for row in completed_enigmes]
+        
+        emit("game:state:response", {
+            "completedEnigmes": completed_ids,
+            "gamePhase": "completed" if len(completed_ids) >= 5 else "playing"
+        })
+
+    except Exception as e:
+        print(f"❌ Error in game:state:request: {e}")
 
 # ---------- Proxy pour médias ----------
 @app.get("/audio-proxy")
