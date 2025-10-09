@@ -293,6 +293,119 @@ def get_poem():
             "message": "Impossible de récupérer le poème"
         }), 500
 
+@app.get("/api/enigmes/3")
+def get_enigme3():
+    """Retourne aléatoirement un enregistrement pour l'énigme 3 (son, options, réponse)."""
+    sound_attempts = [
+        ("SELECT url_audio, options_json, correct FROM Enigme3_Son ORDER BY RAND() LIMIT 1", ["url_audio", "options_json", "correct"]),
+        ("SELECT sound_url, options_json, correct FROM Enigme3_Son ORDER BY RAND() LIMIT 1", ["sound_url", "options_json", "correct"]),
+        ("SELECT url_son, options_json, correct FROM Enigme3_Son ORDER BY RAND() LIMIT 1", ["url_son", "options_json", "correct"]),
+        ("SELECT url_son, bonne_reponse FROM Enigme3_Son ORDER BY RAND() LIMIT 1", ["url_son", "bonne_reponse"]),
+        ("SELECT url_audio, option1, option2, option3, correct FROM Enigme3_Son ORDER BY RAND() LIMIT 1", ["url_audio", "option1", "option2", "option3", "correct"]),
+        ("SELECT sound_url, option1, option2, option3, correct FROM Enigme3_Son ORDER BY RAND() LIMIT 1", ["sound_url", "option1", "option2", "option3", "correct"]),
+        ("SELECT audio, options_json, answer as correct FROM Enigme3 ORDER BY RAND() LIMIT 1", ["audio", "options_json", "correct"]),
+        ("SELECT audio_url as url_audio, options as options_json, correct FROM Enigme3 ORDER BY RAND() LIMIT 1", ["url_audio", "options_json", "correct"]),
+    ]
+
+    import json
+
+    for sql, keys in sound_attempts:
+        try:
+            row = query_one(sql)
+            if not row:
+                continue
+
+            def g(k):
+                return row.get(k) if isinstance(row, dict) else row[k]
+
+            # URL du son
+            sound_key = None
+            for k in ("url_audio", "sound_url", "url_son", "audio"):
+                if k in keys:
+                    sound_key = k
+                    break
+            sound_url = g(sound_key) if sound_key else None
+
+            # Options
+            options = []
+            if "options_json" in keys:
+                raw = g("options_json")
+                if raw:
+                    try:
+                        parsed = json.loads(raw) if isinstance(raw, str) else raw
+                        if isinstance(parsed, list):
+                            options = [str(x) for x in parsed if x]
+                    except Exception:
+                        options = []
+            else:
+                tmp = []
+                for k in ("option1", "option2", "option3", "option4"):
+                    if k in keys:
+                        v = g(k)
+                        if v:
+                            tmp.append(str(v))
+                options = [o for o in tmp if o]
+
+            # Réponse correcte
+            correct = None
+            if "correct" in keys:
+                c = g("correct"); correct = str(c) if c is not None else None
+            elif "bonne_reponse" in keys:
+                c = g("bonne_reponse"); correct = str(c) if c is not None else None
+
+            resp = {
+                "sounds": [sound_url] if sound_url else [],
+                "options": options,
+                "correct": correct,
+            }
+
+            # Générer des options si vides mais réponse dispo
+            if (not resp["options"]) and resp["correct"]:
+                base_opts = [resp["correct"], "éléphant", "machine"]
+                uniq = []
+                for o in base_opts:
+                    s = str(o)
+                    if s not in uniq:
+                        uniq.append(s)
+                random.shuffle(uniq)
+                resp["options"] = uniq
+
+            if resp["sounds"] or resp["options"] or resp["correct"]:
+                return jsonify(resp)
+        except Exception:
+            continue
+
+    return jsonify({"sounds": [], "options": [], "correct": None})
+
+@app.get("/api/enigmes/1")
+def get_enigme1():
+    """Retourne une image aléatoire parmi toutes les images de la table Enigme1_Puzzle.
+    Chaque enregistrement peut contenir jusqu'à trois colonnes d'URL (url_photo_1..3).
+    """
+    try:
+        rows = query_all("SELECT url_photo_1, url_photo_2, url_photo_3 FROM Enigme1_Puzzle")
+        if not rows:
+            return jsonify({"images": []})
+
+        # Collecter toutes les URLs non vides de tous les enregistrements
+        all_images = []
+        for row in rows:
+            if isinstance(row, dict):
+                candidates = [row.get("url_photo_1"), row.get("url_photo_2"), row.get("url_photo_3")]
+            else:
+                candidates = [row["url_photo_1"], row["url_photo_2"], row["url_photo_3"]]
+            for u in candidates:
+                if u:
+                    all_images.append(str(u))
+
+        if not all_images:
+            return jsonify({"images": []})
+
+        # Choisir une image aléatoire
+        selected = random.choice(all_images)
+        return jsonify({"images": [selected]})
+    except Exception as e:
+        return jsonify({"images": [], "error": str(e)}), 500
 # ---------- Validation des énigmes ----------
 EXPECTED = {
     "puzzle-nantes-1": ["reconstruit", "ok", "la source"],

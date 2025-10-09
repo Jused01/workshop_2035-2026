@@ -10,7 +10,7 @@ def issue_token(game_id: str, player_id: str, role: str):
         "gid": game_id,
         "pid": player_id,
         "role": role,
-        "exp": datetime.datetime.utcnow() + datetime.timedelta(minutes=EXPIRES),
+        "exp": datetime.datetime.utcnow() + datetime.timedelta(days=1),
     }
     return jwt.encode(payload, JWT_SECRET, algorithm="HS256")
 
