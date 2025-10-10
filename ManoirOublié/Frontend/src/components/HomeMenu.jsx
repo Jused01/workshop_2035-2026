@@ -261,6 +261,60 @@ const HomeMenu = ({ onEnterManor, onJoinGame, loading, error }) => {
                 </div>
             </div>
 
+            {/* Visible control panel so users can start without using keyboard */}
+            <div className="panel" style={{ width: '100%', maxWidth: 860, marginTop: 18 }}>
+                <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <input
+                        type="text"
+                        value={playerName}
+                        onChange={(e) => setPlayerName(e.target.value)}
+                        placeholder="Votre nom"
+                        className="text-input"
+                        style={{ flex: '1 1 240px', minWidth: 220 }}
+                        onKeyPress={(e) => e.key === 'Enter' && handleStartGame()}
+                    />
+
+                    <div style={{ flex: '0 0 320px' }}>
+                        <div className="modes">
+                            <button onClick={() => setJoinMode("create")} className={`mode-btn ${joinMode === "create" ? "active" : ""}`}>
+                                <DoorOpen size={18} />
+                                <span style={{ fontSize: '13px' }}>Créer</span>
+                            </button>
+                            <button onClick={() => setJoinMode("code")} className={`mode-btn ${joinMode === "code" ? "active" : ""}`}>
+                                <Hash size={18} />
+                                <span style={{ fontSize: '13px' }}>Code</span>
+                            </button>
+                            <button onClick={() => setJoinMode("random")} className={`mode-btn ${joinMode === "random" ? "active" : ""}`}>
+                                <Users size={18} />
+                                <span style={{ fontSize: '13px' }}>Aléatoire</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div style={{ flex: '0 0 220px' }}>
+                        {joinMode === 'code' ? (
+                            <input
+                                type="text"
+                                value={joinCode}
+                                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                                placeholder="Code (ex: ABC123)"
+                                className="text-input"
+                                maxLength={6}
+                                style={{ textTransform: 'uppercase' }}
+                            />
+                        ) : null}
+                    </div>
+
+                    <div style={{ flex: '0 0 180px' }}>
+                        <button onClick={handleStartGame} disabled={loading} className="primary-btn btn-accent">
+                            {loading ? 'Connexion...' : (joinMode === 'create' ? 'Créer une partie' : joinMode === 'code' ? 'Rejoindre' : 'Partie aléatoire')}
+                        </button>
+                    </div>
+                </div>
+
+                {error && <div className="error-box" style={{ marginTop: 12 }}>{error}</div>}
+            </div>
+
             {showNameInput && (
                 <div className="modal-overlay">
                     <div className="modal">
@@ -274,63 +328,18 @@ const HomeMenu = ({ onEnterManor, onJoinGame, loading, error }) => {
 
                         {/* Mode de jeu */}
                         <div style={{ marginBottom: '16px' }}>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
-                                <button
-                                    onClick={() => setJoinMode("create")}
-                                    className={`mode-btn ${joinMode === "create" ? "active" : ""}`}
-                                    style={{
-                                        padding: '12px',
-                                        borderRadius: '8px',
-                                        border: joinMode === "create" ? '2px solid #4f46e5' : '2px solid transparent',
-                                        background: joinMode === "create" ? 'rgba(79, 70, 229, 0.2)' : 'rgba(55, 65, 81, 0.4)',
-                                        color: '#e0e7ff',
-                                        cursor: 'pointer',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        alignItems: 'center',
-                                        gap: '4px'
-                                    }}
-                                >
+                            <div className="modes">
+                                <button onClick={() => setJoinMode("create")} className={`mode-btn ${joinMode === "create" ? "active" : ""}`}>
                                     <DoorOpen size={20} />
                                     <span style={{ fontSize: '13px' }}>Créer</span>
                                 </button>
 
-                                <button
-                                    onClick={() => setJoinMode("code")}
-                                    className={`mode-btn ${joinMode === "code" ? "active" : ""}`}
-                                    style={{
-                                        padding: '12px',
-                                        borderRadius: '8px',
-                                        border: joinMode === "code" ? '2px solid #4f46e5' : '2px solid transparent',
-                                        background: joinMode === "code" ? 'rgba(79, 70, 229, 0.2)' : 'rgba(55, 65, 81, 0.4)',
-                                        color: '#e0e7ff',
-                                        cursor: 'pointer',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        alignItems: 'center',
-                                        gap: '4px'
-                                    }}
-                                >
+                                <button onClick={() => setJoinMode("code")} className={`mode-btn ${joinMode === "code" ? "active" : ""}`}>
                                     <Hash size={20} />
                                     <span style={{ fontSize: '13px' }}>Code</span>
                                 </button>
 
-                                <button
-                                    onClick={() => setJoinMode("random")}
-                                    className={`mode-btn ${joinMode === "random" ? "active" : ""}`}
-                                    style={{
-                                        padding: '12px',
-                                        borderRadius: '8px',
-                                        border: joinMode === "random" ? '2px solid #4f46e5' : '2px solid transparent',
-                                        background: joinMode === "random" ? 'rgba(79, 70, 229, 0.2)' : 'rgba(55, 65, 81, 0.4)',
-                                        color: '#e0e7ff',
-                                        cursor: 'pointer',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        alignItems: 'center',
-                                        gap: '4px'
-                                    }}
-                                >
+                                <button onClick={() => setJoinMode("random")} className={`mode-btn ${joinMode === "random" ? "active" : ""}`}>
                                     <Users size={20} />
                                     <span style={{ fontSize: '13px' }}>Aléatoire</span>
                                 </button>
@@ -360,7 +369,7 @@ const HomeMenu = ({ onEnterManor, onJoinGame, loading, error }) => {
                             />
                         )}
 
-                        <button onClick={handleStartGame} disabled={loading} className="primary-btn">
+                        <button onClick={handleStartGame} disabled={loading} className="primary-btn btn-accent">
                             {joinMode === "create" && <DoorOpen className="icon" />}
                             {joinMode === "code" && <Hash className="icon" />}
                             {joinMode === "random" && <Users className="icon" />}

@@ -439,7 +439,7 @@ EXPECTED = {
     "puzzle-nantes-1": ["reconstruit", "ok", "la source"],
     "lumiere-nantes-2": ["lumiere", "clair-obscur", "5638", "6142"],
     "son-elephant-3": ["elephant", "grand-elephant", "machines de l'île"],
-    "timeline-nantes-4": ["1860 1894 1900 1955 2007"],
+    "timeline-nantes-4": ["1860 1894 1900 1955 2007", "ok"],
     "poetique-nantes-5": ["memoire de nantes", "anneaux de burel", "passage pommeraye"],
 }
 PUZZLE_POINTS = 400

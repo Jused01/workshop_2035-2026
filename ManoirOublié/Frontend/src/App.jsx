@@ -3,6 +3,7 @@ import HomeMenu from "./components/HomeMenu";
 import WaitingRoom from "./components/WaitingRoom";
 import EnigmeSelectionRoom from "./components/EnigmeSelectionRoom";
 import GameRoom, { GameRoomReturnFloating } from "./components/GameRoom";
+import CongratulationsScreen from "./components/CongratulationsScreen";
 import { createGame, joinGame, startGame } from "./services/api";
 
 export default function App() {
@@ -14,6 +15,9 @@ export default function App() {
     const [players, setPlayers] = useState([]);
     const [selectedEnigme, setSelectedEnigme] = useState(1);
     const [score, setScore] = useState(0);
+    const [completedEnigmes, setCompletedEnigmes] = useState(new Set());
+    const [globalCompletedEnigmes, setGlobalCompletedEnigmes] = useState(new Set());
+    const [isGameCompleted, setIsGameCompleted] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
 
@@ -32,6 +36,7 @@ export default function App() {
 
             const savedScreen = sessionStorage.getItem("app:screen");
             const savedEnigme = sessionStorage.getItem("app:selectedEnigme");
+            const savedCompleted = sessionStorage.getItem("app:completedEnigmes");
 
             if (savedScreen && savedScreen !== "home") {
                 setScreen(savedScreen);
@@ -42,6 +47,26 @@ export default function App() {
 
             if (savedEnigme) {
                 setSelectedEnigme(parseInt(savedEnigme, 10) || 1);
+            }
+
+            if (savedCompleted) {
+                try {
+                    const completed = JSON.parse(savedCompleted);
+                    setCompletedEnigmes(new Set(completed));
+                } catch (e) {
+                    console.error("Erreur lors de la restauration des énigmes complétées:", e);
+                }
+            }
+            
+            // Charger l'état global des énigmes complétées
+            const savedGlobalCompleted = sessionStorage.getItem("app:globalCompletedEnigmes");
+            if (savedGlobalCompleted) {
+                try {
+                    const globalCompleted = JSON.parse(savedGlobalCompleted);
+                    setGlobalCompletedEnigmes(new Set(globalCompleted));
+                } catch (e) {
+                    console.error("Erreur lors de la restauration des énigmes globales complétées:", e);
+                }
             }
         } catch (e) {
             console.error("Erreur lors de la restauration de session:", e);
@@ -65,6 +90,42 @@ export default function App() {
         }
     }, [selectedEnigme]);
 
+    useEffect(() => {
+        try {
+            sessionStorage.setItem("app:completedEnigmes", JSON.stringify([...completedEnigmes]));
+        } catch (e) {
+            console.error("Erreur lors de la sauvegarde des énigmes complétées:", e);
+        }
+    }, [completedEnigmes]);
+
+    useEffect(() => {
+        try {
+            sessionStorage.setItem("app:globalCompletedEnigmes", JSON.stringify([...globalCompletedEnigmes]));
+        } catch (e) {
+            console.error("Erreur lors de la sauvegarde des énigmes globales complétées:", e);
+        }
+    }, [globalCompletedEnigmes]);
+
+    // Synchroniser la progression globale avec les événements socket
+    useEffect(() => {
+        const checkSocketState = () => {
+            const { gameState } = window.__socketHook || {};
+            if (gameState && gameState.completedEnigmes) {
+                console.log("🔄 [App] Updating global completed enigmes:", gameState.completedEnigmes);
+                setGlobalCompletedEnigmes(new Set(gameState.completedEnigmes));
+            }
+        };
+        
+        // Vérifier immédiatement
+        checkSocketState();
+        
+        // Vérifier périodiquement
+        const interval = setInterval(checkSocketState, 1000);
+        
+        return () => clearInterval(interval);
+    }, []);
+
+
     const handleEnterManor = async (name) => {
         setLoading(true);
         setError("");
@@ -82,7 +143,7 @@ export default function App() {
             localStorage.setItem('playerName', name);
 
             setPlayers([{ id: 'temp', name, ready: false, role: 'curator', score: 0 }]);
-            setScreen("home");
+            setScreen("waiting");
         } catch (err) {
             console.error("Erreur création partie:", err);
             setError("Erreur lors de la création de la partie: " + (err.message || err));
@@ -146,24 +207,85 @@ export default function App() {
     };
 
     const handleSelectEnigme = (enigmeId) => {
+        // Vérifier si l'énigme n'est pas déjà complétée globalement
+        if (globalCompletedEnigmes.has(enigmeId)) {
+            alert("Cette énigme a déjà été résolue par un autre joueur !");
+            return;
+        }
+        
         setSelectedEnigme(enigmeId);
         setScreen("game");
+        
+        // Notifier les autres joueurs de la sélection
+        try {
+            const { sendEnigmeSelection } = window.__socketHook || {};
+            if (sendEnigmeSelection) {
+                sendEnigmeSelection(enigmeId);
+            }
+        } catch (e) {
+            console.warn("Impossible d'envoyer la sélection d'énigme:", e);
+        }
     };
 
     const handleEnigmeComplete = (points) => {
         setScore((prev) => prev + points);
 
-        // Afficher une notification de succès
+        // Mark locally completed
+        setCompletedEnigmes((prev) => {
+            const newSet = new Set(prev);
+            newSet.add(selectedEnigme);
+            return newSet;
+        });
+
+        // Optimistically update global set so UI reflects it immediately
+        const newGlobal = new Set(globalCompletedEnigmes);
+        newGlobal.add(selectedEnigme);
+        setGlobalCompletedEnigmes(newGlobal);
+
         console.log(`✅ Énigme ${selectedEnigme} complétée ! +${points} points`);
 
-        // Retour à la salle de sélection après 2 secondes
-        setTimeout(() => {
+        // If all enigmes are completed, show congratulations screen and mark game completed
+        if (newGlobal.size >= 5) {
+            setIsGameCompleted(true);
+            setScreen("congratulations");
+        } else if (!isGameCompleted) {
+            // otherwise return to selection
             setScreen("selection");
-        }, 2000);
+        }
     };
 
     const handleReturnToSelection = () => {
         console.log("[App] Retour à la sélection");
+        setScreen("selection");
+    };
+
+    const handleReturnHome = () => {
+        // Nettoyer la session
+        localStorage.removeItem('playerToken');
+        localStorage.removeItem('gameId');
+        localStorage.removeItem('roomCode');
+        localStorage.removeItem('playerName');
+        sessionStorage.removeItem("app:screen");
+        sessionStorage.removeItem("app:selectedEnigme");
+        sessionStorage.removeItem("app:completedEnigmes");
+        
+        // Reset des états
+        setPlayerName("");
+        setRoomCode("");
+        setGameId("");
+        setPlayerToken("");
+        setPlayers([]);
+        setSelectedEnigme(1);
+        setScore(0);
+        setCompletedEnigmes(new Set());
+        setScreen("home");
+    };
+
+    const handleRestartGame = () => {
+        // Reset des énigmes complétées et du score
+        setCompletedEnigmes(new Set());
+        setScore(0);
+        setSelectedEnigme(1);
         setScreen("selection");
     };
 
@@ -175,13 +297,19 @@ export default function App() {
             }
         };
         const onAppReturn = () => setScreen("selection");
+        const onGameCompleted = (e) => {
+            console.log("🎉 Jeu terminé reçu:", e.detail);
+            setScreen("congratulations");
+        };
 
         window.addEventListener("keydown", onKey);
         window.addEventListener("app:return", onAppReturn);
+        window.addEventListener("game:completed", onGameCompleted);
 
         return () => {
             window.removeEventListener("keydown", onKey);
             window.removeEventListener("app:return", onAppReturn);
+            window.removeEventListener("game:completed", onGameCompleted);
         };
     }, [screen]);
 
@@ -199,71 +327,109 @@ export default function App() {
                     players,
                     selectedEnigme,
                     score,
+                    completedEnigmes: [...completedEnigmes],
                 }),
             };
         }
-    }, [screen, playerName, roomCode, gameId, players, selectedEnigme, score]);
+    }, [screen, playerName, roomCode, gameId, players, selectedEnigme, score, completedEnigmes]);
 
-    // Rendu conditionnel des écrans
+    // Rendu conditionnel des écrans, tous centrés via .app-root
     if (screen === "home") {
         return (
-            <HomeMenu
-                onEnterManor={handleEnterManor}
-                onJoinGame={handleJoinGame}
-                loading={loading}
-                error={error}
-            />
+            <div className="app-root">
+                <div className="app-container">
+                    <HomeMenu
+                        onEnterManor={handleEnterManor}
+                        onJoinGame={handleJoinGame}
+                        loading={loading}
+                        error={error}
+                    />
+                </div>
+            </div>
         );
     }
 
     if (screen === "waiting") {
         return (
-            <WaitingRoom
-                roomCode={roomCode}
-                gameId={gameId}
-                playerName={playerName}
-                playerToken={playerToken}
-                players={players}
-                setPlayers={setPlayers}
-                onReady={handleReady}
-                onStartGame={handleStartGame}
-                onLeaveRoom={() => setScreen("home")}
-                loading={loading}
-                error={error}
-            />
+            <div className="app-root">
+                <div className="app-container">
+                    <WaitingRoom
+                        roomCode={roomCode}
+                        gameId={gameId}
+                        playerName={playerName}
+                        playerToken={playerToken}
+                        players={players}
+                        setPlayers={setPlayers}
+                        onReady={handleReady}
+                        onStartGame={handleStartGame}
+                        onLeaveRoom={() => setScreen("home")}
+                        loading={loading}
+                        error={error}
+                    />
+                </div>
+            </div>
         );
     }
 
     if (screen === "selection") {
         return (
-            <EnigmeSelectionRoom
-                playerName={playerName}
-                players={players}
-                score={score}
-                onSelectEnigme={handleSelectEnigme}
-            />
+            <div className="app-root">
+                <div className="app-container">
+                    <EnigmeSelectionRoom
+                        playerName={playerName}
+                        players={players}
+                        score={score}
+                        completedEnigmes={completedEnigmes}
+                        globalCompletedEnigmes={globalCompletedEnigmes}
+                        onSelectEnigme={handleSelectEnigme}
+                    />
+                </div>
+            </div>
         );
     }
 
     if (screen === "game") {
         return (
-            <>
-                <GameRoom
-                    gameId={gameId}
-                    roomCode={roomCode}
-                    playerName={playerName}
-                    playerToken={playerToken}
-                    players={players}
-                    currentEnigme={selectedEnigme}
-                    score={score}
-                    onComplete={handleEnigmeComplete}
-                    onReturn={handleReturnToSelection}
-                />
-                <GameRoomReturnFloating onReturn={handleReturnToSelection} />
-            </>
+            <div className="app-root">
+                <div className="app-container">
+                    <GameRoom
+                        gameId={gameId}
+                        roomCode={roomCode}
+                        playerName={playerName}
+                        playerToken={playerToken}
+                        players={players}
+                        currentEnigme={selectedEnigme}
+                        score={score}
+                        onComplete={handleEnigmeComplete}
+                        onReturn={handleReturnToSelection}
+                    />
+                </div>
+            </div>
+        );
+    }
+
+    if (screen === "congratulations") {
+        return (
+            <div className="app-root">
+                <div className="app-container">
+                    <CongratulationsScreen
+                        playerName={playerName}
+                        score={score}
+                        onReturnHome={handleReturnHome}
+                        onRestartGame={handleRestartGame}
+                        customMessage="Félicitations ! Vous avez résolu toutes les énigmes du Manoir Oublié ! Votre perspicacité et votre détermination ont permis de révéler tous les secrets cachés de ce mystérieux lieu."
+                    />
+                </div>
+            </div>
         );
     }
 
     // Fallback
-    return <div>Écran inconnu</div>;
+    return (
+        <div className="app-root">
+            <div className="app-container">
+                <div className="panel centered">Écran inconnu</div>
+            </div>
+        </div>
+    );
 }

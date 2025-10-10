@@ -8,24 +8,35 @@ const getAuthToken = () => {
     return localStorage.getItem('playerToken');
 };
 
+// Endpoints that do NOT require auth; avoid Authorization header to skip CORS preflight
+const NO_AUTH_PREFIXES = ['/api/enigmes/1', '/api/enigmes/3', '/audio-proxy', '/image-proxy', '/health'];
+
 // Helper function to make authenticated requests
 const apiRequest = async (endpoint, options = {}) => {
     const token = getAuthToken();
     const url = `${API_BASE_URL}${endpoint}`;
-    
-    const config = {
-        headers: {
-            'Content-Type': 'application/json',
-            ...(token && { 'Authorization': `Bearer ${token}` }),
-            ...options.headers,
-        },
-        ...options,
+
+    const isNoAuth = NO_AUTH_PREFIXES.some(p => endpoint.startsWith(p));
+    const needsAuth = !!(token && !isNoAuth);
+    const method = (options.method || 'GET').toUpperCase();
+    const isSimpleGet = isNoAuth && method === 'GET';
+
+    // Start with provided headers, but avoid adding headers for simple GETs to prevent preflight
+    const headers = isSimpleGet ? { ...(options.headers || {}) } : {
+        ...(options.headers || {}),
+        ...(needsAuth ? { 'Authorization': `Bearer ${token}` } : {}),
     };
 
-    // Ajouter le token seulement s'il existe
-    if (token) {
-        config.headers['Authorization'] = `Bearer ${token}`;
+    // Only set Content-Type automatically when sending a JSON body
+    if (!isSimpleGet && options.body && !('Content-Type' in headers)) {
+        headers['Content-Type'] = 'application/json';
     }
+
+    const config = {
+        ...options,
+        headers,
+        mode: options.mode || 'cors',
+    };
 
     try {
         const response = await fetch(url, config);
@@ -46,14 +57,23 @@ const apiRequest = async (endpoint, options = {}) => {
 // ---------- Game API functions ----------
 
 export const createGame = async (nickname = "Agent", role = "curator") => {
-    const res = await apiRequest('/api/games', {
-        method: 'POST',
-        body: JSON.stringify({ nickname, role }),
-    });
-    if (res.playerToken) {
-        localStorage.setItem('playerToken', res.playerToken);
+    console.log('Creating game with:', { nickname, role });
+    try {
+        const res = await apiRequest('/api/games', {
+            method: 'POST',
+            body: JSON.stringify({ nickname, role }),
+        });
+        console.log('Game creation response:', res);
+        if (res.playerToken) {
+            localStorage.setItem('playerToken', res.playerToken);
+            if (res.gameId) localStorage.setItem('gameId', res.gameId);
+            if (res.code) localStorage.setItem('roomCode', res.code);
+        }
+        return res;
+    } catch (error) {
+        console.error('Game creation failed:', error);
+        throw error;
     }
-    return res;
 };
 
 export const joinGame = async (code, nickname = "Agent", role = "analyst") => {
@@ -150,7 +170,7 @@ export const getEnigmeDoc = async (id) => {
     }
     if (id === 'enigme1') {
         try {
-            const data = await apiRequest('/api/enigmes/1');
+            const data = await apiRequest(`/api/enigmes/1?r=${Date.now()}`);
             if (data && Array.isArray(data.images) && data.images.length) {
                 return { images: data.images, mode: 'choose-three' };
             }
@@ -176,17 +196,19 @@ export const buildProxiedUrl = (rawUrl) => {
     } catch (_) {
         // if invalid URL, return as-is (backend might still handle)
     }
-    return `${API_BASE_URL}/image-proxy?url=${encodeURIComponent(rawUrl)}`;
+    const bust = Date.now();
+    return `${API_BASE_URL}/image-proxy?url=${encodeURIComponent(rawUrl)}&cb=${bust}`;
 };
 
 export const buildAudioProxiedUrl = (rawUrl) => {
     if (!rawUrl) return null;
-    return `${API_BASE_URL}/audio-proxy?url=${encodeURIComponent(rawUrl)}`;
+    const bust = Date.now();
+    return `${API_BASE_URL}/audio-proxy?url=${encodeURIComponent(rawUrl)}&cb=${bust}`;
 };
 
 export const getEnigme3 = async () => {
     try {
-        const data = await apiRequest('/api/enigmes/3');
+        const data = await apiRequest(`/api/enigmes/3?r=${Date.now()}`);
         if (data) return {
             sounds: Array.isArray(data.sounds) ? data.sounds : [],
             options: Array.isArray(data.options) ? data.options : [],

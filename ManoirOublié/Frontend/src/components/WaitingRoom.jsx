@@ -29,8 +29,8 @@ export default function WaitingRoom({ roomCode, gameId, playerName, playerToken,
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-950 to-gray-900 text-gray-200 p-8">
-            <div className="max-w-4xl mx-auto">
+        <div className="w-full flex justify-center">
+            <div className="max-w-4xl w-full">
                 {/* En-tête */}
                 <div className="bg-gray-800/80 backdrop-blur-lg rounded-2xl p-8 mb-6 border border-gray-700">
                     <div className="flex items-center justify-between mb-4">

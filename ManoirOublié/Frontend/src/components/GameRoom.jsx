@@ -6,14 +6,41 @@ import { useSocket } from "../services/useSocket";
 import Enigme1Puzzle from "./Enigmes/Enigme1Puzzle";
 import Enigme2Lumiere from "./Enigmes/Enigme2Lumiere";
 import Enigme3Son from "./Enigmes/Enigme3Son";
-import Enigme4Timeline from "./Enigmes/Enigme4Timeline";
+import Enigme4Timeline from "./Enigmes/Enigme4TimeLine";
 import Enigme5Poem from "./Enigmes/Enigme5Poem";
 
 export default function GameRoom({ gameId, roomCode, playerName, playerToken, players, currentEnigme, score, onComplete, onReturn }) {
-    const { messages, sendMessage, isConnected } = useSocket(gameId);
     const [chatInput, setChatInput] = useState("");
     const [timeLeft, setTimeLeft] = useState(1800); // 30 minutes par défaut
     const messagesEndRef = useRef(null);
+
+    const socketHook = useSocket(gameId, {
+        onPuzzleSolved: (data) => {
+            console.log("🎯 Puzzle solved in GameRoom:", data);
+            if (data.player === playerName) {
+                handleEnigmeComplete(data.points || 400);
+            }
+        },
+        onGameStateUpdate: (data) => {
+            // Ne rien faire ici pour éviter les boucles infinies
+        },
+        onGameCompleted: (data) => {
+            // Le jeu est terminé, afficher l'écran de félicitations
+            console.log("🎉 Jeu terminé !", data);
+            // Déclencher l'écran de félicitations via un événement personnalisé
+            window.dispatchEvent(new CustomEvent('game:completed', { detail: data }));
+        }
+    });
+
+    const { messages, sendMessage, isConnected, gameState, sendGameStateUpdate } = socketHook;
+
+    // Exposer le hook socket globalement pour App.jsx
+    useEffect(() => {
+        window.__socketHook = socketHook;
+        return () => {
+            delete window.__socketHook;
+        };
+    }, [socketHook]);
 
     // Timer de la partie
     useEffect(() => {
@@ -59,8 +86,8 @@ export default function GameRoom({ gameId, roomCode, playerName, playerToken, pl
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-950 to-gray-900 text-gray-200 p-4">
-            <div className="max-w-7xl mx-auto">
+        <div className="w-full flex justify-center">
+            <div className="max-w-7xl w-full">
                 {/* Header */}
                 <div className="bg-gray-800/80 backdrop-blur-lg rounded-xl p-4 mb-4 flex items-center justify-between border border-gray-700">
                     <div className="flex items-center gap-6">
@@ -104,19 +131,38 @@ export default function GameRoom({ gameId, roomCode, playerName, playerToken, pl
                     </div>
                 </div>
 
-                {/* Corps du jeu */}
-                <div className="grid lg:grid-cols-3 gap-4">
-                    {/* Zone énigmes */}
-                    <div className="lg:col-span-2 bg-gray-800/80 rounded-xl p-8 border border-gray-700">
-                        {currentEnigme === 1 && <Enigme1Puzzle onComplete={handleEnigmeComplete} />}
-                        {currentEnigme === 2 && <Enigme2Lumiere onComplete={handleEnigmeComplete} />}
-                        {currentEnigme === 3 && <Enigme3Son onComplete={handleEnigmeComplete} />}
-                        {currentEnigme === 4 && <Enigme4Timeline onComplete={handleEnigmeComplete} />}
-                        {currentEnigme === 5 && <Enigme5Poem onComplete={handleEnigmeComplete} />}
+                {/* Corps du jeu: left instructions | center puzzle | right chat */}
+                <div className="game-grid">
+                    {/* Left instructions panel */}
+                    <div className="side-panel-left">
+                        <aside className="panel bg-gray-800/80 rounded-xl p-8 border border-gray-700">
+                        <h3 className="font-bold text-xl mb-3">Instructions</h3>
+                        <p className="card-text mb-4">Travaillez en équipe: sélectionnez une énigme, résolvez-la et signalez la solution. Les énigmes sont partagées entre tous les joueurs.</p>
+                        <ul className="card-text" style={{ listStyle: 'disc', paddingLeft: 20, lineHeight: 1.6 }}>
+                            <li>Chaque énigme rapporte des points.</li>
+                            <li>Soyez attentif aux indices visuels.</li>
+                            <li>Utilisez le chat pour coordonner.</li>
+                        </ul>
+                        <div style={{ marginTop: 12 }}>
+                            <button onClick={() => window.dispatchEvent(new CustomEvent('app:return'))} className="mode-btn">Retour à la sélection</button>
+                        </div>
+                        </aside>
                     </div>
 
+                    {/* Center puzzle area */}
+                    <main className="bg-gray-800/80 rounded-xl p-10 border border-gray-700" style={{ minHeight: '620px' }}>
+                        <div className="puzzle-inner">
+                            {currentEnigme === 1 && <Enigme1Puzzle onComplete={handleEnigmeComplete} />}
+                            {currentEnigme === 2 && <Enigme2Lumiere onComplete={handleEnigmeComplete} />}
+                            {currentEnigme === 3 && <Enigme3Son onComplete={handleEnigmeComplete} />}
+                            {currentEnigme === 4 && <Enigme4Timeline onComplete={handleEnigmeComplete} />}
+                            {currentEnigme === 5 && <Enigme5Poem onComplete={handleEnigmeComplete} />}
+                        </div>
+                    </main>
+
                     {/* Chat */}
-                    <div className="bg-gray-800/80 rounded-xl p-4 flex flex-col border border-gray-700" style={{ height: '600px' }}>
+                    <div className="side-panel-right">
+                        <aside className="panel bg-gray-800/80 rounded-xl p-6 flex flex-col border border-gray-700" style={{ minHeight: '640px' }}>
                         <div className="flex items-center justify-between mb-3 pb-3 border-b border-gray-700">
                             <h3 className="font-bold flex items-center gap-2 text-lg">
                                 <MessageSquare className="w-6 h-6" />
@@ -185,7 +231,7 @@ export default function GameRoom({ gameId, roomCode, playerName, playerToken, pl
                                 onKeyPress={handleKeyPress}
                                 placeholder={isConnected ? "Tapez un message..." : "Connexion..."}
                                 disabled={!isConnected}
-                                className="flex-1 bg-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-gray-400 border border-gray-600 focus:outline-none focus:border-amber-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="flex-1 bg-gray-700 rounded-lg px-3 py-3 text-sm text-gray-200 placeholder-gray-400 border border-gray-600 focus:outline-none focus:border-amber-500 disabled:opacity-50 disabled:cursor-not-allowed"
                                 maxLength={500}
                             />
                             <button
@@ -203,6 +249,7 @@ export default function GameRoom({ gameId, roomCode, playerName, playerToken, pl
                                 ⚠️ Reconnexion au serveur...
                             </div>
                         )}
+                        </aside>
                     </div>
                 </div>
             </div>
